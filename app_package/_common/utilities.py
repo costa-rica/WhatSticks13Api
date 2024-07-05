@@ -126,11 +126,11 @@ def save_request_data( request_data_to_save,route_path_for_name, user_id, path_t
 
 
 def wrap_up_session(custom_logger, db_session):
-    custom_logger.info("- accessed wrap_up_session -")
+    # custom_logger.info("- accessed wrap_up_session -")
     try:
         # perform some database operations
         db_session.commit()
-        custom_logger.info("- perfomed: sess.commit() -")
+        # custom_logger.info("- perfomed: sess.commit() -")
     except Exception as e:
         db_session.rollback()  # Roll back the transaction on error
         custom_logger.info("- perfomed: sess.rollback() -")
@@ -138,7 +138,7 @@ def wrap_up_session(custom_logger, db_session):
         raise
     finally:
         db_session.close()  # Ensure the session is closed in any case
-        custom_logger.info("- perfomed: sess.close() -")
+        # custom_logger.info("- perfomed: sess.close() -")
 
 
 def response_dict_tech_difficulties_alert(response_dict):
@@ -159,28 +159,28 @@ def response_dict_tech_difficulties_alert(response_dict):
 logger_request = custom_logger("logger_request.log")
 
 def teardown_request(exception=None):
-    logger_request.info("- *********************** -")
-    logger_request.info("- in teardown_request -")
-    logger_request.info("- in teardown_request -")
-    logger_request.info("- *********************** -")
+    # logger_request.info("- *********************** -")
+    # logger_request.info("- in teardown_request -")
+    # logger_request.info("- in teardown_request -")
+    # logger_request.info("- *********************** -")
 
     db_session = g.pop('db_session', None)
     if db_session is not None:
-        logger_request.info(f"- db_session ID: {id(db_session)} ")
+        # logger_request.info(f"- db_session ID: {id(db_session)} ")
         if exception is None:
             db_session.commit()
-            logger_request.info(f"- teardown_request commit -")
+            # logger_request.info(f"- teardown_request commit -")
         else:
             db_session.rollback()
-            logger_request.info(f"- teardown_request rollback -")
-        logger_request.info("- db_session.close() -")
+        #     logger_request.info(f"- teardown_request rollback -")
+        # logger_request.info("- db_session.close() -")
         
         db_session.close()
 
 
 
 def before_request_custom():
-    logger_request.info("- in before_request_custom -")
+    # logger_request.info("- in before_request_custom -")
     # Each request will have access to a database session
     g.db_session = DatabaseSession()
 

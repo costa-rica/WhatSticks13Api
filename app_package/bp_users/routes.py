@@ -5,7 +5,7 @@ from ws_models import DatabaseSession, Users, AppleHealthQuantityCategory, \
 from werkzeug.security import generate_password_hash, check_password_hash #password hashing
 import bcrypt
 from datetime import datetime
-from itsdangerous.url_safe import URLSafeTimedSerializer#new 2023
+from itsdangerous.url_safe import URLSafeTimedSerializer#new 2023 <---- DELETE ?????
 import logging
 import os
 from logging.handlers import RotatingFileHandler
@@ -14,8 +14,9 @@ import socket
 # from app_package.utilsDecorators import token_required, response_dict_tech_difficulties_alert
 from app_package._common.token_decorator import token_required
 from app_package.bp_users.utils import send_confirm_email, send_reset_email, delete_user_from_table, \
-    delete_user_data_files, get_apple_health_count_date, delete_user_daily_csv
-from sqlalchemy import desc
+    delete_user_data_files, get_apple_health_count_date, delete_user_daily_csv, \
+    create_user_obj_for_swift_login
+# from sqlalchemy import desc
 from ws_utilities import convert_lat_lon_to_timezone_string, convert_lat_lon_to_city_country, \
     find_user_location, add_user_loc_day_process
 import requests
@@ -62,28 +63,18 @@ def login():
         return make_response('Could not verify - user not found', 401)
     
     if auth.password:
-        # if bcrypt.checkpw(auth.password.encode(), user.password):
+        logger_bp_users.info(f"- ******************** -")
+        logger_bp_users.info(f"- Check Password -")
+        logger_bp_users.info(f"- Check Password -")
+        
+
+        logger_bp_users.info(f"- db password (user_exists.password): {user.password.encode()} -")
+        logger_bp_users.info(f"- submitted password (auth.password): {auth.password.encode()} -")
+        logger_bp_users.info(f"- Check Password -")
+        logger_bp_users.info(f"- ******************** -")
         if bcrypt.checkpw(auth.password.encode(), user.password.encode()):
-            serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
-
-            user_object_for_swift_app = {}
-            user_object_for_swift_app['id'] = str(user.id)
-            user_object_for_swift_app['email'] = user.email
-            user_object_for_swift_app['username'] = user.username
-            # cannot return password because it is encrypted
-            user_object_for_swift_app['token'] = serializer.dumps({'user_id': user.id})
-            # # Token expires in 3600 seconds (1 hour)
-            # user_object_for_swift_app['token'] = serializer.dumps({'user_id': user.id}, expires_in=3600)
-
-            user_object_for_swift_app['timezone'] = user.timezone
-            user_object_for_swift_app['location_permission_device'] = str(user.location_permission_device)
-            user_object_for_swift_app['location_permission_ws'] = str(user.location_permission_ws)
             
-            latest_entry = db_session.query(UserLocationDay).filter(UserLocationDay.user_id == user.id) \
-                            .order_by(desc(UserLocationDay.date_time_utc_user_check_in)).first()
-            if latest_entry != None:
-                user_object_for_swift_app['last_location_date'] = str(latest_entry.date_time_utc_user_check_in)[:10]
-
+            user_object_for_swift_app = create_user_obj_for_swift_login(user, db_session)
             
             response_dict = {}
             response_dict['alert_title'] = "Success"
@@ -97,10 +88,58 @@ def login():
     return make_response('Could not verify', 401)
 
 
+# TODO: DELETE ?
+@bp_users.route('/login_generic_account',methods=['POST'])
+def login_generic_account():
+    logger_bp_users.info(f"- in login_generic_account -")
+    db_session = g.db_session
+    #############################################################################################
+    ## In case of emergency, ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT prevents users from logging in
+    if current_app.config.get('ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT'):
+        response_dict = response_dict_tech_difficulties_alert(response_dict = {})
+        return jsonify(response_dict)
+    #############################################################################################
+    try:
+        request_json = request.json
+        logger_bp_users.info(f"username: {request_json.get('username')}")
+    except Exception as e:
+        logger_bp_users.info(f"failed to read json")
+        logger_bp_users.info(f"{type(e).__name__}: {e}")
+        response = jsonify({"error": str(e)})
+        return make_response(response, 400)
+
+    if request_json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
+        response_dict = {}
+        response_dict['alert_title'] = ""
+        response_dict['alert_message'] = f"Invalid API password"
+        # return jsonify(response_dict)
+        return jsonify(response_dict), 401
+
+    username = request_json.get('username')
+    user = db_session.query(Users).filter_by(username= username).first()
+
+    if not user:
+        response_dict = {}
+        response_dict['alert_title'] = ""
+        response_dict['alert_message'] = f"No user found"
+        return jsonify(response_dict), 400
+
+    logger_bp_users.info(f"user: {user}")
+
+    user_object_for_swift_app = create_user_obj_for_swift_login(user, db_session)
+    
+    response_dict = {}
+    response_dict['alert_title'] = "Success"
+    response_dict['alert_message'] = ""
+    response_dict['user'] = user_object_for_swift_app
+
+    logger_bp_users.info(f"- response_dict: {response_dict} -")
+    return jsonify(response_dict)
+
+
 @bp_users.route('/register', methods=['POST'])
 def register():
     logger_bp_users.info(f"- register endpoint pinged -")
-    # ws_api_password = request.json.get('WS_API_PASSWORD')
     logger_bp_users.info(request.json)
     db_session = g.db_session
 
@@ -114,14 +153,19 @@ def register():
     try:
         request_json = request.json
         logger_bp_users.info(f"successfully read request_json (new_email): {request_json.get('new_email')}")
-        logger_bp_users.info(f"successfully read request_json: {request_json}")
     except Exception as e:
         logger_bp_users.info(f"failed to read json")
         logger_bp_users.info(f"{type(e).__name__}: {e}")
         response = jsonify({"error": str(e)})
         return make_response(response, 400)
     
-    response_dict = {}
+
+    if request_json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
+        response_dict = {}
+        response_dict['alert_title'] = ""
+        response_dict['alert_message'] = f"Requests not from What Sticks Platform applications will not be supported."
+        # return jsonify(response_dict)
+        return jsonify({'error': 'Invalid API password'}), 401
 
     if request_json.get('new_email') in ("", None) or request_json.get('new_password') in ("" , None):
         logger_bp_users.info(f"- failed register no email or password -")
@@ -166,7 +210,260 @@ def register():
     logger_bp_users.info(f"- Successfully registered response_dict: {response_dict}  -")
     return jsonify(response_dict)
 
+
+@bp_users.route('/register_generic_account', methods=['POST'])
+def register_generic_account():
+    logger_bp_users.info(f"- register endpoint pinged -")
+    db_session = g.db_session
+
+    ######################################################################################
+    ## In case of emergency, ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT prevents new users
+    if current_app.config.get('ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT'):
+        response_dict = response_dict_tech_difficulties_alert(response_dict = {})
+        return jsonify(response_dict)
+    ######################################################################################
+    
+    if request.json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
+        response_dict = {}
+        response_dict['alert_title'] = ""
+        response_dict['alert_message'] = f"Requests not from What Sticks Platform applications will not be supported."
+        # return jsonify(response_dict)
+        return jsonify({'error': 'Invalid API password'}), 401
+
+    # verify "ambivalent_elf_" is not in db -- which should always be the case
+    new_username = "ambivalent_elf_"
+    user_exists = db_session.query(Users).filter_by(username= new_username).first()
+    if user_exists:
+        #################################
+        # Delete this account because there should never be an "ambivalent_elf_"
+        delete_apple_health_qty_cat = delete_user_from_table(user_exists, AppleHealthQuantityCategory)
+        delete_apple_health_workouts = delete_user_from_table(user_exists, AppleHealthWorkout)
+        delete_user_location_day = delete_user_from_table(user_exists, UserLocationDay)
+        # delete: dataframe pickle, data source json, and dashboard json
+        delete_user_data_files(user_exists)
+        # delete user daily CSV files that display on the website user home page:
+        delete_user_daily_csv(user_exists)
+        delete_user_from_users_table = delete_user_from_table(user_exists, Users)
+    
+    new_user = Users(username=new_username)
+
+    #Add user to get user_id
+    db_session.add(new_user)
+    db_session.flush()
+    user_id = new_user.id
+    new_username = "ambivalent_elf_"+f"{user_id:04}"
+    new_user.username = new_username
+
+    user_object_for_swift_app = create_user_obj_for_swift_login(new_user, db_session)
+    
+    response_dict = {}
+    response_dict['alert_title'] = "Success"
+    response_dict['alert_message'] = ""
+    response_dict['user'] = user_object_for_swift_app
+    response_dict["id"] = f"{new_user.id}"
+    response_dict["username"] = f"{new_username}"
+    response_dict["alert_title"] = f"Success!"
+    response_dict["alert_message"] = f""
+    logger_bp_users.info(f"- Successfully registered response_dict: {response_dict}  -")
+    return jsonify(response_dict)
         
+
+
+@bp_users.route('/convert_generic_account_to_custom_account', methods=['POST'])
+@token_required
+def convert_generic_account_to_custom_account(current_user):
+    logger_bp_users.info(f"- in convert_generic_account_to_custom_account -")
+    # ws_api_password = request.json.get('WS_API_PASSWORD')
+    # logger_bp_users.info(request.json)
+    db_session = g.db_session
+
+    ######################################################################################
+    ## In case of emergency, ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT prevents new users
+    if current_app.config.get('ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT'):
+        response_dict = response_dict_tech_difficulties_alert(response_dict = {})
+        return jsonify(response_dict)
+    ######################################################################################
+
+    # try:
+    #     request_json = request.json
+    #     logger_bp_users.info(f"successfully read request_json (new_email): {request_json.get('new_email')}")
+    # except Exception as e:
+    #     logger_bp_users.info(f"failed to read json")
+    #     logger_bp_users.info(f"{type(e).__name__}: {e}")
+    #     response = jsonify({"error": str(e)})
+    #     return make_response(response, 400)
+    
+
+    if request.json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
+        response_dict = {}
+        response_dict['alert_title'] = ""
+        response_dict['alert_message'] = f"Requests not from What Sticks Platform applications will not be supported."
+        return jsonify({'error': 'Invalid API password'}), 401
+    
+    auth = request.authorization
+
+    new_email = auth.username
+    new_password = auth.password
+
+    logger_bp_users.info(f"- new_email (auth.username): {new_email} -")
+    logger_bp_users.info(f"- new_password (auth.password): {new_password} -")
+
+    if new_email in ("", None) or new_password in ("" , None):
+        logger_bp_users.info(f"- failed register no email or password -")
+        response_dict["alert_title"] = f"User must have email and password"
+        response_dict["alert_message"] = f""
+        return jsonify(response_dict)
+
+
+
+    user_exists = db_session.query(Users).filter_by(email= new_email).first()
+
+    logger_bp_users.info(f"- user_exists: {user_exists} -")
+
+    if user_exists:
+        logger_bp_users.info(f"- PASSED if user_exists: -")
+        logger_bp_users.info(f"- db password: {user_exists.password.encode()} -")
+        logger_bp_users.info(f"- submitted password: {new_password.encode()} -")
+        
+        if bcrypt.checkpw(new_password.encode(), user_exists.password.encode()):
+            logger_bp_users.info(f"- PASSED if bcrypt.checkpw(auth.password.encode(), -")
+            #################################
+            # check if this user has data search for data_source_json file
+            current_user_data_source_json_file_name = f"data_source_list_for_user_{current_user.id:04}.json"
+            current_user_data_source_json_file = os.path.join(current_app.config.get('DATA_SOURCE_FILES_DIR'), current_user_data_source_json_file_name)
+
+
+            existing_user_data_source_json_file_name = f"data_source_list_for_user_{user_exists.id:04}.json"
+            existing_user_data_source_json_file = os.path.join(current_app.config.get('DATA_SOURCE_FILES_DIR'), existing_user_data_source_json_file_name)
+
+            logger_bp_users.info(f"- current_user_data_source_json_file exists?: {os.path.exists(current_user_data_source_json_file)} -")
+            logger_bp_users.info(f"- existing_user_data_source_json_file exists?: {os.path.exists(existing_user_data_source_json_file)} -")
+            
+
+
+
+            # This means the current_user (ambivalent_elf_###) has NO data and existing_user (new_email) HAS data
+            ## only case where delete current_user (ambivalent_elf_####)
+            if not os.path.exists(current_user_data_source_json_file) and os.path.exists(existing_user_data_source_json_file):
+                #################################
+                # Change user to old account
+                # Step 1: Create New token and place in user_object_for_swift_app with old account id
+                user_object_for_swift_app = create_user_obj_for_swift_login(user_exists, db_session)
+                
+                logger_bp_users.info(f"- Changed Token -")
+                #################################
+                # Step 2: Check for old Data Source JSON
+                user_data_source_json_file_name = f"data_source_list_for_user_{user_exists.id:04}.json"
+                json_data_path_and_name = os.path.join(current_app.config.get('DATA_SOURCE_FILES_DIR'), user_data_source_json_file_name)
+                data_source_object_array = []
+                if os.path.exists(json_data_path_and_name):
+                    with open(json_data_path_and_name,'r') as data_source_json_file:
+                        data_source_object_array = json.load(data_source_json_file)
+                #################################
+                # Step 3: Check for old Dashboard Table JSON
+                user_data_table_array_json_file_name = f"data_table_objects_array_{user_exists.id:04}.json"
+                json_data_path_and_name = os.path.join(current_app.config.get('DASHBOARD_FILES_DIR'), user_data_table_array_json_file_name)
+                logger_bp_users.info(f"- Dashboard table object file name and path: {json_data_path_and_name} -")
+                dashboard_table_object_array = []
+                logger_bp_users.info(f"- os.path.exists(json_data_path_and_name): {os.path.exists(json_data_path_and_name)} -")
+                logger_bp_users.info(f"- json_data_path_and_name: {json_data_path_and_name} -")
+                if os.path.exists(json_data_path_and_name):
+                    logger_bp_users.info(f"- Changed Token -")
+                    with open(json_data_path_and_name,'r') as dashboard_json_file:
+                        dashboard_table_object_array = json.load(dashboard_json_file)
+                        print("*************")
+                        print("*************")
+                        print("****** dashboard_table_object_array *******")
+                        print(dashboard_table_object_array)
+                        print("*************")
+                
+
+                #################################
+                # Step 4: delete current_user (ambivalent_elf_###)
+                delete_apple_health_qty_cat = delete_user_from_table(current_user, AppleHealthQuantityCategory)
+                delete_apple_health_workouts = delete_user_from_table(current_user, AppleHealthWorkout)
+                delete_user_location_day = delete_user_from_table(current_user, UserLocationDay)
+                # delete: dataframe pickle, data source json, and dashboard json
+                delete_user_data_files(current_user)
+                # delete user daily CSV files that display on the website user home page:
+                delete_user_daily_csv(current_user)
+                delete_user_from_users_table = delete_user_from_table(current_user, Users)
+
+
+                #################################
+                # Step 5: Send back 
+                response_dict = {}
+                response_dict['alert_title'] = "Success"
+                response_dict['alert_message'] = ""
+                response_dict['user'] = user_object_for_swift_app
+                response_dict['data_source_object_array'] = data_source_object_array
+                response_dict['dashboard_table_object_array'] = dashboard_table_object_array
+
+                logger_bp_users.info(f"- response_dict: {response_dict} -")
+                return jsonify(response_dict)
+
+
+            # This means the current account (ambivalent_elf_###) has data OR the existing_user (new_email) has NO data
+            else:
+                #################################
+                # Step 1: delete old account
+                delete_apple_health_qty_cat = delete_user_from_table(user_exists, AppleHealthQuantityCategory)
+                delete_apple_health_workouts = delete_user_from_table(user_exists, AppleHealthWorkout)
+                delete_user_location_day = delete_user_from_table(user_exists, UserLocationDay)
+                # delete: dataframe pickle, data source json, and dashboard json
+                delete_user_data_files(user_exists)
+                # delete user daily CSV files that display on the website user home page:
+                delete_user_daily_csv(user_exists)
+                delete_user_from_users_table = delete_user_from_table(user_exists, Users)
+
+                #################################
+                # Step 2: Update user generic
+                current_user.email = new_email
+                current_user.username = new_email.split('@')[0]
+                hash_pw = bcrypt.hashpw(new_password.encode(), salt)
+                current_user.password = hash_pw
+
+                if new_email not in current_app.config.get('LIST_NO_CONFIRMASTION_EMAILS'):
+                    send_confirm_email(new_email)
+
+                response_dict = {}
+                response_dict["message"] = f"new user created: {new_email}"
+                response_dict["id"] = f"{current_user.id}"
+                response_dict["username"] = f"{current_user.username}"
+                response_dict["alert_title"] = f"Success!"
+                response_dict["alert_message"] = f""
+                logger_bp_users.info(f"- Successfully converted acccount response_dict: {response_dict}  -")
+                return jsonify(response_dict)
+
+
+
+        
+        else:
+            logger_bp_users.info(f"- failed register user already exists -")
+            response_dict["alert_title"] = f"Email already exists"
+            response_dict["alert_message"] = f"passwords not matching"
+            return jsonify(response_dict), 409
+    else:
+        #################################
+        # Update user generic
+        current_user.email = new_email
+        current_user.username = new_email.split('@')[0]
+        hash_pw = bcrypt.hashpw(new_password.encode(), salt)
+        current_user.password = hash_pw
+
+        if new_email not in current_app.config.get('LIST_NO_CONFIRMASTION_EMAILS'):
+            send_confirm_email(new_email)
+
+        response_dict = {}
+        response_dict["message"] = f"new user created: {new_email}"
+        response_dict["id"] = f"{current_user.id}"
+        response_dict["username"] = f"{current_user.username}"
+        response_dict["alert_title"] = f"Success!"
+        response_dict["alert_message"] = f""
+        logger_bp_users.info(f"- Successfully converted acccount response_dict: {response_dict}  -")
+        return jsonify(response_dict)
+
+
 # this get's sent at login
 @bp_users.route('/send_data_source_objects', methods=['POST'])
 @token_required

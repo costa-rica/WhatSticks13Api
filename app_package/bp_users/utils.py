@@ -12,6 +12,8 @@ import requests
 from datetime import datetime 
 from ws_models import DatabaseSession, UserLocationDay, Locations
 from app_package._common.utilities import custom_logger, wrap_up_session
+from itsdangerous.url_safe import URLSafeTimedSerializer#new 2023
+from sqlalchemy import desc
 
 logger_bp_users = custom_logger('bp_users.log')
 
@@ -150,4 +152,26 @@ def website_url():
             base_url = f"http://localhost:5000"
     
     return base_url
+
+def create_user_obj_for_swift_login(user, db_session):
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    user_object_for_swift_app = {}
+    user_object_for_swift_app['id'] = str(user.id)
+    user_object_for_swift_app['email'] = user.email
+    user_object_for_swift_app['username'] = user.username
+    # cannot return password because it is encrypted
+    user_object_for_swift_app['token'] = serializer.dumps({'user_id': user.id})
+    # # Token expires in 3600 seconds (1 hour)
+    # user_object_for_swift_app['token'] = serializer.dumps({'user_id': user.id}, expires_in=3600)
+
+    user_object_for_swift_app['timezone'] = user.timezone
+    user_object_for_swift_app['location_permission_device'] = str(user.location_permission_device)
+    user_object_for_swift_app['location_permission_ws'] = str(user.location_permission_ws)
+    
+    latest_entry = db_session.query(UserLocationDay).filter(UserLocationDay.user_id == user.id) \
+                    .order_by(desc(UserLocationDay.date_time_utc_user_check_in)).first()
+    if latest_entry != None:
+        user_object_for_swift_app['last_location_date'] = str(latest_entry.date_time_utc_user_check_in)[:10]
+
+    return user_object_for_swift_app
 
