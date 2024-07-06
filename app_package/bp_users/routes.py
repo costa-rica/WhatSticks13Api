@@ -88,7 +88,6 @@ def login():
     return make_response('Could not verify', 401)
 
 
-# TODO: DELETE ?
 @bp_users.route('/login_generic_account',methods=['POST'])
 def login_generic_account():
     logger_bp_users.info(f"- in login_generic_account -")
@@ -213,7 +212,7 @@ def register():
 
 @bp_users.route('/register_generic_account', methods=['POST'])
 def register_generic_account():
-    logger_bp_users.info(f"- register endpoint pinged -")
+    logger_bp_users.info(f"- in register_generic_account -")
     db_session = g.db_session
 
     ######################################################################################
@@ -234,6 +233,7 @@ def register_generic_account():
     new_username = "ambivalent_elf_"
     user_exists = db_session.query(Users).filter_by(username= new_username).first()
     if user_exists:
+        logger_bp_users.info(f"- removeing  ambivalent_elf_ -")
         #################################
         # Delete this account because there should never be an "ambivalent_elf_"
         delete_apple_health_qty_cat = delete_user_from_table(user_exists, AppleHealthQuantityCategory)
@@ -245,6 +245,7 @@ def register_generic_account():
         delete_user_daily_csv(user_exists)
         delete_user_from_users_table = delete_user_from_table(user_exists, Users)
     
+    logger_bp_users.info(f"- setting up the real ambiv_elf_#### -")
     new_user = Users(username=new_username)
 
     #Add user to get user_id
@@ -253,17 +254,16 @@ def register_generic_account():
     user_id = new_user.id
     new_username = "ambivalent_elf_"+f"{user_id:04}"
     new_user.username = new_username
-
+    logger_bp_users.info(f"- new user is {new_username} -")
     user_object_for_swift_app = create_user_obj_for_swift_login(new_user, db_session)
     
     response_dict = {}
     response_dict['alert_title'] = "Success"
-    response_dict['alert_message'] = ""
+    response_dict['alert_message'] = "are we right?"
+    # response_dict['id'] = "the numbrer 4"
     response_dict['user'] = user_object_for_swift_app
     response_dict["id"] = f"{new_user.id}"
     response_dict["username"] = f"{new_username}"
-    response_dict["alert_title"] = f"Success!"
-    response_dict["alert_message"] = f""
     logger_bp_users.info(f"- Successfully registered response_dict: {response_dict}  -")
     return jsonify(response_dict)
         
@@ -282,17 +282,7 @@ def convert_generic_account_to_custom_account(current_user):
     if current_app.config.get('ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT'):
         response_dict = response_dict_tech_difficulties_alert(response_dict = {})
         return jsonify(response_dict)
-    ######################################################################################
-
-    # try:
-    #     request_json = request.json
-    #     logger_bp_users.info(f"successfully read request_json (new_email): {request_json.get('new_email')}")
-    # except Exception as e:
-    #     logger_bp_users.info(f"failed to read json")
-    #     logger_bp_users.info(f"{type(e).__name__}: {e}")
-    #     response = jsonify({"error": str(e)})
-    #     return make_response(response, 400)
-    
+    ######################################################################################   
 
     if request.json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
         response_dict = {}
@@ -371,11 +361,6 @@ def convert_generic_account_to_custom_account(current_user):
                     logger_bp_users.info(f"- Changed Token -")
                     with open(json_data_path_and_name,'r') as dashboard_json_file:
                         dashboard_table_object_array = json.load(dashboard_json_file)
-                        print("*************")
-                        print("*************")
-                        print("****** dashboard_table_object_array *******")
-                        print(dashboard_table_object_array)
-                        print("*************")
                 
 
                 #################################

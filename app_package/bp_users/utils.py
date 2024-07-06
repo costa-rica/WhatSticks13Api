@@ -159,6 +159,7 @@ def create_user_obj_for_swift_login(user, db_session):
     user_object_for_swift_app['id'] = str(user.id)
     user_object_for_swift_app['email'] = user.email
     user_object_for_swift_app['username'] = user.username
+    user_object_for_swift_app['admin_permission'] = user.admin_permission
     # cannot return password because it is encrypted
     user_object_for_swift_app['token'] = serializer.dumps({'user_id': user.id})
     # # Token expires in 3600 seconds (1 hour)
