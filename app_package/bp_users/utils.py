@@ -166,8 +166,8 @@ def create_user_obj_for_swift_login(user, db_session):
     # user_object_for_swift_app['token'] = serializer.dumps({'user_id': user.id}, expires_in=3600)
 
     user_object_for_swift_app['timezone'] = user.timezone
-    user_object_for_swift_app['location_permission_device'] = str(user.location_permission_device)
-    user_object_for_swift_app['location_permission_ws'] = str(user.location_permission_ws)
+    user_object_for_swift_app['location_permission_device'] = user.location_permission_device
+    user_object_for_swift_app['location_permission_ws'] = user.location_permission_ws
     
     latest_entry = db_session.query(UserLocationDay).filter(UserLocationDay.user_id == user.id) \
                     .order_by(desc(UserLocationDay.date_time_utc_user_check_in)).first()

@@ -108,6 +108,7 @@ def login_generic_account():
         return make_response(response, 400)
 
     if request_json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
+        logger_bp_users.info(f"- Didn't get the password")
         response_dict = {}
         response_dict['alert_title'] = ""
         response_dict['alert_message'] = f"Invalid API password"
@@ -667,7 +668,7 @@ def reset_password(current_user):
 
         return jsonify(response_dict)
 
-
+# Maybe delete ?
 @bp_users.route('/update_user_location_with_lat_lon', methods=["POST"])
 @token_required
 def update_user_location_with_lat_lon(current_user):
@@ -682,29 +683,35 @@ def update_user_location_with_lat_lon(current_user):
         response = jsonify({"error": str(e)})
         return make_response(response, 400)
 
+
+    if request_json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
+        response_dict = {}
+        response_dict['alert_title'] = ""
+        response_dict['alert_message'] = f"Invalid API password"
+        # return jsonify(response_dict)
+        return jsonify(response_dict), 401
+
+    logger_bp_users.info(f"location_permission_device type: {type(request_json.get('location_permission_device'))}")
+    logger_bp_users.info(f"location_permission_device value: {request_json.get('location_permission_device')}")
+
+
     #update permission
     location_permission_device = request_json.get('location_permission_device') == "True"
     location_permission_ws = request_json.get('location_permission_ws') == "True"
 
     current_user.location_permission_device=location_permission_device
     current_user.location_permission_ws=location_permission_ws
-    # sess.commit()
-    logger_bp_users.info(f"**** ************************ ******")
-    logger_bp_users.info(f"**** changed current user and removed sess.commit() ******")
-    logger_bp_users.info(f"**** committing new location_permission_ws ******")
-    logger_bp_users.info(f"**** ************************ ******")
+
+    logger_bp_users.info(f"**** location_permission_device: {location_permission_device} ******")
+    logger_bp_users.info(f"**** location_permission_ws: {location_permission_ws} ******")
 
     response_dict = {}
-
-    #if permission granted:
-    # this is conveservative, perhaps use location_permission_device?
-    if not location_permission_ws:
-        response_dict["message"] = f"Removed user location tracking"
-        return jsonify(response_dict)
+    user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
 
     if 'latitude' not in request_json.keys():
-        print("- no latitude but reoccuring set to True")
-        response_dict["message"] = f"Updated status to reoccuring data collection"
+        response_dict['user'] = user_object_for_swift_app
+        response_dict["alert_message"] = f"Updated status to reoccuring data collection. But no initial location was sent."
+        logger_bp_users.info(f"- response_dict: {response_dict} ")
         return jsonify(response_dict)
 
     # Add to User's table
@@ -715,11 +722,6 @@ def update_user_location_with_lat_lon(current_user):
     current_user.lat = latitude
     current_user.lon = longitude
     current_user.timezone = timezone_str
-    # sess.commit()
-    logger_bp_users.info(f"**** ************************ ******")
-    logger_bp_users.info(f"**** changed current user and removed sess.commit() ******")
-    logger_bp_users.info(f"**** committing new location_permission_ws ******")
-    logger_bp_users.info(f"**** ************************ ******")
 
     # Get the current datetime
     current_utc_datetime = datetime.utcnow()
@@ -731,8 +733,10 @@ def update_user_location_with_lat_lon(current_user):
     location_id = add_user_loc_day_process(db_session, current_user.id,latitude, longitude, formatted_datetime_utc)
 
     user_location = db_session.get(Locations, location_id)
-    response_dict["message"] = f"Updated user location in UserLocDay Table with {user_location.city}, {user_location.country}"
-
+    user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
+    response_dict["alert_message"] = f"Updated user location in UserLocDay Table with {user_location.city}, {user_location.country}"
+    response_dict['user'] = user_object_for_swift_app
+    logger_bp_users.info(f"- response_dict: {response_dict} ")
     return jsonify(response_dict)
 
 
