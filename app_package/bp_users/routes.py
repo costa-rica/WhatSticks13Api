@@ -21,6 +21,7 @@ from ws_utilities import convert_lat_lon_to_timezone_string, convert_lat_lon_to_
     find_user_location, add_user_loc_day_process
 import requests
 from app_package._common.utilities import custom_logger, wrap_up_session
+import time
 
 logger_bp_users = custom_logger('bp_users.log')
 bp_users = Blueprint('bp_users', __name__)
@@ -41,6 +42,7 @@ def are_we_working():
 def login():
     logger_bp_users.info(f"- login endpoint pinged -")
     db_session = g.db_session
+    # time.sleep(10)
     #############################################################################################
     ## In case of emergency, ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT prevents users from logging in
     if current_app.config.get('ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT'):
@@ -115,10 +117,19 @@ def login_generic_account():
         # return jsonify(response_dict)
         return jsonify(response_dict), 401
 
+
+
     username = request_json.get('username')
+
+    # if username[:len("ambivalent_elf_")] != "ambivalent_elf_":
+    #     response_dict = {}
+    #     response_dict['alert_title'] = ""
+    #     response_dict['alert_message'] = f"No user found"
+    #     return jsonify(response_dict), 400
+
     user = db_session.query(Users).filter_by(username= username).first()
 
-    if not user:
+    if not user or username[:len("ambivalent_elf_")] != "ambivalent_elf_":
         response_dict = {}
         response_dict['alert_title'] = ""
         response_dict['alert_message'] = f"No user found"
@@ -152,7 +163,7 @@ def register():
 
     try:
         request_json = request.json
-        logger_bp_users.info(f"successfully read request_json (new_email): {request_json.get('new_email')}")
+        logger_bp_users.info(f"successfully read request_json (email): {request_json.get('email')}")
     except Exception as e:
         logger_bp_users.info(f"failed to read json")
         logger_bp_users.info(f"{type(e).__name__}: {e}")
@@ -167,13 +178,13 @@ def register():
         # return jsonify(response_dict)
         return jsonify({'error': 'Invalid API password'}), 401
 
-    if request_json.get('new_email') in ("", None) or request_json.get('new_password') in ("" , None):
+    if request_json.get('email') in ("", None) or request_json.get('new_password') in ("" , None):
         logger_bp_users.info(f"- failed register no email or password -")
         response_dict["alert_title"] = f"User must have email and password"
         response_dict["alert_message"] = f""
         return jsonify(response_dict)
 
-    user_exists = db_session.query(Users).filter_by(email= request_json.get('new_email')).first()
+    user_exists = db_session.query(Users).filter_by(email= request_json.get('email')).first()
 
     if user_exists:
         logger_bp_users.info(f"- failed register user already exists -")
@@ -187,8 +198,8 @@ def register():
     for key, value in request_json.items():
         if key == "new_password":
             setattr(new_user, "password", hash_pw)
-        elif key == "new_email":
-            setattr(new_user, "email", request_json.get('new_email'))
+        elif key == "email":
+            setattr(new_user, "email", request_json.get('email'))
 
     setattr(new_user, "timezone", "Etc/GMT")
 
@@ -198,11 +209,11 @@ def register():
     logger_bp_users.info(f"- Successfully registered {new_user.email} as user id: {new_user.id}  -")
 
  
-    if request_json.get('new_email') not in current_app.config.get('LIST_NO_CONFIRMASTION_EMAILS'):
-        send_confirm_email(request_json.get('new_email'))
+    if request_json.get('email') not in current_app.config.get('LIST_NO_CONFIRMASTION_EMAILS'):
+        send_confirm_email(request_json.get('email'))
 
     response_dict = {}
-    response_dict["message"] = f"new user created: {request_json.get('new_email')}"
+    response_dict["message"] = f"new user created: {request_json.get('email')}"
     response_dict["id"] = f"{new_user.id}"
     response_dict["username"] = f"{new_user.username}"
     response_dict["alert_title"] = f"Success!"
@@ -273,10 +284,12 @@ def register_generic_account():
 @bp_users.route('/convert_generic_account_to_custom_account', methods=['POST'])
 @token_required
 def convert_generic_account_to_custom_account(current_user):
+    
     logger_bp_users.info(f"- in convert_generic_account_to_custom_account -")
     # ws_api_password = request.json.get('WS_API_PASSWORD')
     # logger_bp_users.info(request.json)
     db_session = g.db_session
+    # time.sleep(5) 
 
     ######################################################################################
     ## In case of emergency, ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT prevents new users
@@ -379,7 +392,7 @@ def convert_generic_account_to_custom_account(current_user):
                 #################################
                 # Step 5: Send back 
                 response_dict = {}
-                response_dict['alert_title'] = "Success"
+                response_dict['alert_title'] = "Success!"
                 response_dict['alert_message'] = ""
                 response_dict['user'] = user_object_for_swift_app
                 response_dict['data_source_object_array'] = data_source_object_array
@@ -408,14 +421,14 @@ def convert_generic_account_to_custom_account(current_user):
                 current_user.username = new_email.split('@')[0]
                 hash_pw = bcrypt.hashpw(new_password.encode(), salt)
                 current_user.password = hash_pw
-
+                db_session.flush()
+                user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
                 if new_email not in current_app.config.get('LIST_NO_CONFIRMASTION_EMAILS'):
                     send_confirm_email(new_email)
 
                 response_dict = {}
                 response_dict["message"] = f"new user created: {new_email}"
-                response_dict["id"] = f"{current_user.id}"
-                response_dict["username"] = f"{current_user.username}"
+                response_dict['user'] = user_object_for_swift_app
                 response_dict["alert_title"] = f"Success!"
                 response_dict["alert_message"] = f""
                 logger_bp_users.info(f"- Successfully converted acccount response_dict: {response_dict}  -")
@@ -436,14 +449,15 @@ def convert_generic_account_to_custom_account(current_user):
         current_user.username = new_email.split('@')[0]
         hash_pw = bcrypt.hashpw(new_password.encode(), salt)
         current_user.password = hash_pw
+        db_session.flush()
+        user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
 
         if new_email not in current_app.config.get('LIST_NO_CONFIRMASTION_EMAILS'):
             send_confirm_email(new_email)
 
         response_dict = {}
         response_dict["message"] = f"new user created: {new_email}"
-        response_dict["id"] = f"{current_user.id}"
-        response_dict["username"] = f"{current_user.username}"
+        response_dict['user'] = user_object_for_swift_app
         response_dict["alert_title"] = f"Success!"
         response_dict["alert_message"] = f""
         logger_bp_users.info(f"- Successfully converted acccount response_dict: {response_dict}  -")
