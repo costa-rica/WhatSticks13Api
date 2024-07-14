@@ -93,6 +93,7 @@ def login():
 @bp_users.route('/login_generic_account',methods=['POST'])
 def login_generic_account():
     logger_bp_users.info(f"- in login_generic_account -")
+    # time.sleep(10)
     db_session = g.db_session
     #############################################################################################
     ## In case of emergency, ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT prevents users from logging in
@@ -538,7 +539,7 @@ def send_dashboard_table_objects(current_user):
 @token_required
 def delete_user(current_user):
     logger_bp_users.info(f"- accessed  delete_user endpoint-")
-
+    db_session = g.db_session
     deleted_records = 0
 
     # delete_apple_health = delete_user_from_table(current_user, AppleHealthQuantityCategory)
@@ -580,11 +581,25 @@ def delete_user(current_user):
         return make_response(jsonify({"error":response_message}), 500)
 
     deleted_records += delete_user_from_users_table[0]
-
+    db_session.flush()
 
     response_dict = {}
     response_dict['message'] = "Successful deletion."
     response_dict['count_deleted_rows'] = "{:,}".format(deleted_records)
+
+    # Create new generic user
+    logger_bp_users.info(f"- setting up the real ambiv_elf_#### -")
+    new_username = "ambivalent_elf_"
+    new_user = Users(username=new_username)
+    #Add user to get user_id
+    db_session.add(new_user)
+    db_session.flush()
+    user_id = new_user.id
+    new_username = "ambivalent_elf_"+f"{user_id:04}"
+    new_user.username = new_username
+    logger_bp_users.info(f"- new user is {new_username} -")
+    user_object_for_swift_app = create_user_obj_for_swift_login(new_user, db_session)
+    response_dict['user'] = user_object_for_swift_app
 
     logger_bp_users.info(f"- response_dict: {response_dict} -")
     return jsonify(response_dict)
