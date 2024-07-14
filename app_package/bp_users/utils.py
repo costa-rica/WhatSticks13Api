@@ -10,7 +10,8 @@ from logging.handlers import RotatingFileHandler
 import pandas as pd
 import requests
 from datetime import datetime 
-from ws_models import DatabaseSession, UserLocationDay, Locations
+from ws_models import DatabaseSession, Users, AppleHealthQuantityCategory, \
+    AppleHealthWorkout, UserLocationDay, Locations
 from app_package._common.utilities import custom_logger, wrap_up_session
 from itsdangerous.url_safe import URLSafeTimedSerializer#new 2023
 from sqlalchemy import desc
@@ -176,3 +177,42 @@ def create_user_obj_for_swift_login(user, db_session):
 
     return user_object_for_swift_app
 
+
+def create_data_source_object(current_user, db_session):
+    logger_bp_users.info(f"- accessed  create_data_source_object -")
+
+
+    list_data_source_objects = []
+
+    # user_data_source_json_file_name = f"Dashboard-user_id{current_user.id}.json"
+    user_data_source_json_file_name = f"data_source_list_for_user_{current_user.id:04}.json"
+    json_data_path_and_name = os.path.join(current_app.config.get('DATA_SOURCE_FILES_DIR'), user_data_source_json_file_name)
+    logger_bp_users.info(f"- Dashboard table object file name and path: {json_data_path_and_name} -")
+    try:
+        if os.path.exists(json_data_path_and_name):
+            with open(json_data_path_and_name,'r') as data_source_json_file:
+                list_data_source_objects = json.load(data_source_json_file)
+                # list_data_source_objects.append(dashboard_table_object)
+        else:
+            logger_bp_users.info(f"File not found: {json_data_path_and_name}")
+
+            #get user's apple health record count
+            # keys to data_source_object_apple_health must match WSiOS DataSourceObject
+            data_source_object_apple_health={}
+            data_source_object_apple_health['name']="Apple Health Data"
+            record_count_apple_health = db_session.query(AppleHealthQuantityCategory).filter_by(user_id=current_user.id).all()
+            data_source_object_apple_health['recordCount']="{:,}".format(len(record_count_apple_health))
+            # apple_health_record_count, earliest_date_str = get_apple_health_count_date(current_user.id)
+            # data_source_object_apple_health['recordCount'] = apple_health_record_count
+            # data_source_object_apple_health['earliestRecordDate'] = earliest_date_str
+            list_data_source_objects.append(data_source_object_apple_health)
+    
+        logger_bp_users.info(f"- Returning dashboard_table_object list: {list_data_source_objects} -")
+        logger_bp_users.info(f"- END send_data_source_objects -")
+        return list_data_source_objects
+
+    except Exception as e:
+        logger_bp_users.error(f"An error occurred in send_data_source_objects)")
+        logger_bp_users.info(f"{type(e).__name__}: {e}")
+        logger_bp_users.info(f"- END send_data_source_objects -")
+        return []

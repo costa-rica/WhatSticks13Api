@@ -15,7 +15,7 @@ import socket
 from app_package._common.token_decorator import token_required
 from app_package.bp_users.utils import send_confirm_email, send_reset_email, delete_user_from_table, \
     delete_user_data_files, get_apple_health_count_date, delete_user_daily_csv, \
-    create_user_obj_for_swift_login
+    create_user_obj_for_swift_login, create_data_source_object
 # from sqlalchemy import desc
 from ws_utilities import convert_lat_lon_to_timezone_string, convert_lat_lon_to_city_country, \
     find_user_location, add_user_loc_day_process
@@ -82,6 +82,7 @@ def login():
             response_dict['alert_title'] = "Success"
             response_dict['alert_message'] = ""
             response_dict['user'] = user_object_for_swift_app
+            response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
 
             logger_bp_users.info(f"- response_dict: {response_dict} -")
             return jsonify(response_dict)
@@ -466,47 +467,21 @@ def convert_generic_account_to_custom_account(current_user):
 
 
 # this get's sent at login
-@bp_users.route('/send_data_source_objects', methods=['POST'])
+@bp_users.route('/send_data_source_objects', methods=['GET'])
 @token_required
 def send_data_source_objects(current_user):
     logger_bp_users.info(f"- accessed  send_data_source_objects endpoint-")
     db_session = g.db_session
 
-    list_data_source_objects = []
+    list_data_source_objects = create_data_source_object(current_user, db_session)
 
-    # user_data_source_json_file_name = f"Dashboard-user_id{current_user.id}.json"
-    user_data_source_json_file_name = f"data_source_list_for_user_{current_user.id:04}.json"
-    json_data_path_and_name = os.path.join(current_app.config.get('DATA_SOURCE_FILES_DIR'), user_data_source_json_file_name)
-    logger_bp_users.info(f"- Dashboard table object file name and path: {json_data_path_and_name} -")
-    try:
-        if os.path.exists(json_data_path_and_name):
-            with open(json_data_path_and_name,'r') as data_source_json_file:
-                list_data_source_objects = json.load(data_source_json_file)
-                # list_data_source_objects.append(dashboard_table_object)
-        else:
-            logger_bp_users.info(f"File not found: {json_data_path_and_name}")
-
-            #get user's apple health record count
-            # keys to data_source_object_apple_health must match WSiOS DataSourceObject
-            data_source_object_apple_health={}
-            data_source_object_apple_health['name']="Apple Health Data"
-            record_count_apple_health = db_session.query(AppleHealthQuantityCategory).filter_by(user_id=current_user.id).all()
-            data_source_object_apple_health['recordCount']="{:,}".format(len(record_count_apple_health))
-            # apple_health_record_count, earliest_date_str = get_apple_health_count_date(current_user.id)
-            # data_source_object_apple_health['recordCount'] = apple_health_record_count
-            # data_source_object_apple_health['earliestRecordDate'] = earliest_date_str
-            list_data_source_objects.append(data_source_object_apple_health)
-    
-        logger_bp_users.info(f"- Returning dashboard_table_object list: {list_data_source_objects} -")
-        logger_bp_users.info(f"- END send_data_source_objects -")
+    if len(list_data_source_objects)>0:
+        logger_bp_users.info("found data in list_data_source_objects")
+        logger_bp_users.info(list_data_source_objects)
         return jsonify(list_data_source_objects)
-
-    except Exception as e:
-        logger_bp_users.error(f"An error occurred in send_data_source_objects)")
-        logger_bp_users.info(f"{type(e).__name__}: {e}")
-        logger_bp_users.info(f"- END send_data_source_objects -")
+    else:
+        logger_bp_users.info("-Did NOT found data in list_data_source_objects")
         return jsonify({"error": "An unexpected error occurred"}), 500
-
 
 @bp_users.route('/send_dashboard_table_objects', methods=['POST'])
 @token_required
