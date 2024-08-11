@@ -87,7 +87,7 @@ def login():
             data_src_obj_status_str, list_data_source_objects =  create_data_source_object(user, db_session)
             if data_src_obj_status_str == "Success":
                 response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
-            dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
+            dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(user, db_session)
             if dash_table_obj_status_str == "Success":
                 response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
             logger_bp_users.info(f"- response_dict: {response_dict} -")
@@ -154,7 +154,7 @@ def login_generic_account():
     data_src_obj_status_str, list_data_source_objects =  create_data_source_object(user, db_session)
     if data_src_obj_status_str == "Success":
         response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
-    dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
+    dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(user, db_session)
     if dash_table_obj_status_str == "Success":
         response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
     logger_bp_users.info(f"- response_dict: {response_dict} -")
