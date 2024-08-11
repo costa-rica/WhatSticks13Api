@@ -125,16 +125,7 @@ def login_generic_account():
         # return jsonify(response_dict)
         return jsonify(response_dict), 401
 
-
-
     username = request_json.get('username')
-
-    # if username[:len("ambivalent_elf_")] != "ambivalent_elf_":
-    #     response_dict = {}
-    #     response_dict['alert_title'] = ""
-    #     response_dict['alert_message'] = f"No user found"
-    #     return jsonify(response_dict), 400
-
     user = db_session.query(Users).filter_by(username= username).first()
 
     if not user or username[:len("ambivalent_elf_")] != "ambivalent_elf_":
@@ -153,7 +144,7 @@ def login_generic_account():
     response_dict['user'] = user_object_for_swift_app
     data_src_obj_status_str, list_data_source_objects =  create_data_source_object(user, db_session)
     if data_src_obj_status_str == "Success":
-        response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
+        response_dict['arryDataSourceObjects'] = list_data_source_objects
     dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(user, db_session)
     if dash_table_obj_status_str == "Success":
         response_dict['arryDashboardTableObjects'] = dashboard_table_object_array

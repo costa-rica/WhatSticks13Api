@@ -52,7 +52,6 @@ def send_confirm_email(email):
     else :
         logger_bp_users.info(f"-- Non prod mode so no email sent --")
 
-
 def delete_user_data_files(current_user):
     
     # dataframe pickle - apple category & quantity
