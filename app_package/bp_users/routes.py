@@ -145,6 +145,7 @@ def login_generic_account():
     response_dict['alert_title'] = "Success"
     response_dict['alert_message'] = ""
     response_dict['user'] = user_object_for_swift_app
+    response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
 
     logger_bp_users.info(f"- response_dict: {response_dict} -")
     return jsonify(response_dict)

@@ -82,6 +82,8 @@ def delete_apple_health_for_user(current_user):
     return jsonify(response_dict)
 
 
+
+
 @bp_apple_health.route('/receive_apple_qty_cat_data', methods=['POST'])
 @token_required
 def receive_apple_qty_cat_data(current_user):
@@ -250,3 +252,59 @@ def apple_health_subprocess_complete():
         logger_bp_apple_health.info(f"- WSAPI finished sending email to user informing data added to db -")
     
     return jsonify({"message":"WSAPI sent email to user that data added to db."})
+
+
+
+
+### OBE ####
+@bp_apple_health.route('/test_receive_apple_qty_cat_data', methods=['POST'])
+@token_required
+def test_receive_apple_qty_cat_data(current_user):
+    logger_bp_apple_health.info(f"- accessed  test_receive_apple_qty_cat_data endpoint-")
+    response_dict = {}
+    try:
+        request_json = request.json
+        logger_bp_apple_health.info("--- received request_json... it is:")
+        logger_bp_apple_health.info(request_json)
+    except Exception as e:
+        response_dict['error':e]
+        response_dict['status':"httpBody data recieved not json not parse-able."]
+
+        logger_bp_apple_health.info(e)
+        logger_bp_apple_health.info(f"- response_dict: {response_dict} -")
+        # return jsonify({"status": "httpBody data recieved not json not parse-able."})
+        return jsonify(response_dict)
+    
+
+    # filename example: AppleHealthQuantityCategory-user_id1-20231229-1612.json
+    time_stamp_str_for_json_file_name = request_json.get("dateStringTimeStamp")
+    apple_health_data_json = request_json.get("arryAppleHealthQuantityCategory")
+    count_of_entries_sent_by_ios = len(apple_health_data_json)
+
+    # timestamp = datetime.now().strftime('%Y%m%d-%H%M')
+    # apple_health_data_request_json_file_name = f"AppleHealth-user_id{current_user.id}-{timestamp}.json"
+    apple_health_qty_cat_json_filename_str = apple_health_qty_cat_json_filename(current_user.id, time_stamp_str_for_json_file_name)
+    json_data_path_and_name = os.path.join(current_app.config.get('APPLE_HEALTH_DIR'),apple_health_qty_cat_json_filename_str)
+
+    logger_bp_apple_health.info(f"- count_of_entries_sent_by_ios (this time): {count_of_entries_sent_by_ios} -")
+
+    new_data_dict = {}
+
+    logger_bp_apple_health.info(f"- processing via WSAS -")
+    long_f_string = f"Apple Health Data contains {count_of_entries_sent_by_ios:,} records. \n" + \
+                    f"You will receive an email when all your data is added to the database."
+    response_dict = {
+        'message': "WSAPI sending call to processing data via WSAS",
+        'alertMessage':long_f_string
+    }
+
+    # run WSAS subprocess
+    process = subprocess.Popen(['python', path_sub, user_id_string, time_stamp_str_for_json_file_name, 'True', 'True'])
+    logger_bp_apple_health.info(f"---> successfully started subprocess PID:: {process.pid} -")
+
+    logger_bp_apple_health.info(f"---> WSAPI > receive_apple_health_data respone for <-----")
+    logger_bp_apple_health.info(f"{response_dict}")
+    return jsonify(response_dict)
+
+
+
