@@ -84,7 +84,6 @@ def delete_user_data_files(current_user):
         logger_bp_users.info(f"- deleted: {user_sleep_dash_json_file_name} successfully -")
         os.remove(json_data_path_and_name)
 
-
 def delete_user_daily_csv(current_user):
     # user_files/daily_csv/
     # format: user_0001_df_daily_sleep_heart_rate.csv
@@ -92,7 +91,6 @@ def delete_user_daily_csv(current_user):
         for filename in os.listdir(current_app.config.get('DAILY_CSV')):
             if f"user_{current_user.id:04}_df" in filename:
                 os.remove(os.path.join(current_app.config.get('DAILY_CSV'), filename))
-
 
 def delete_user_from_table(current_user, table):
     db_session = DatabaseSession()
@@ -112,7 +110,6 @@ def delete_user_from_table(current_user, table):
         error = e
     
     return count_deleted_rows, error
-
 
 def get_apple_health_count_date(user_id):
     user_apple_qty_cat_dataframe_pickle_file_name = f"user_{int(user_id):04}_apple_health_dataframe.pkl"
@@ -177,10 +174,8 @@ def create_user_obj_for_swift_login(user, db_session):
 
     return user_object_for_swift_app
 
-
 def create_data_source_object(current_user, db_session):
     logger_bp_users.info(f"- accessed  create_data_source_object -")
-
 
     list_data_source_objects = []
 
@@ -189,30 +184,51 @@ def create_data_source_object(current_user, db_session):
     json_data_path_and_name = os.path.join(current_app.config.get('DATA_SOURCE_FILES_DIR'), user_data_source_json_file_name)
     logger_bp_users.info(f"- Dashboard table object file name and path: {json_data_path_and_name} -")
     try:
-        if os.path.exists(json_data_path_and_name):
-            with open(json_data_path_and_name,'r') as data_source_json_file:
-                list_data_source_objects = json.load(data_source_json_file)
+        # if os.path.exists(json_data_path_and_name-):
+        with open(json_data_path_and_name,'r') as data_source_json_file:
+            list_data_source_objects = json.load(data_source_json_file)
                 # list_data_source_objects.append(dashboard_table_object)
-        else:
-            logger_bp_users.info(f"File not found: {json_data_path_and_name}")
+        # else:
+        #     logger_bp_users.info(f"File not found: {json_data_path_and_name}")
 
-            #get user's apple health record count
-            # keys to data_source_object_apple_health must match WSiOS DataSourceObject
-            data_source_object_apple_health={}
-            data_source_object_apple_health['name']="Apple Health Data"
-            record_count_apple_health = db_session.query(AppleHealthQuantityCategory).filter_by(user_id=current_user.id).all()
-            data_source_object_apple_health['recordCount']="{:,}".format(len(record_count_apple_health))
-            # apple_health_record_count, earliest_date_str = get_apple_health_count_date(current_user.id)
-            # data_source_object_apple_health['recordCount'] = apple_health_record_count
-            # data_source_object_apple_health['earliestRecordDate'] = earliest_date_str
-            list_data_source_objects.append(data_source_object_apple_health)
+        #     #get user's apple health record count
+        #     # keys to data_source_object_apple_health must match WSiOS DataSourceObject
+        #     data_source_object_apple_health={}
+        #     data_source_object_apple_health['name']="Apple Health Data"
+        #     record_count_apple_health = db_session.query(AppleHealthQuantityCategory).filter_by(user_id=current_user.id).all()
+        #     data_source_object_apple_health['recordCount']="{:,}".format(len(record_count_apple_health))
+        #     # apple_health_record_count, earliest_date_str = get_apple_health_count_date(current_user.id)
+        #     # data_source_object_apple_health['recordCount'] = apple_health_record_count
+        #     # data_source_object_apple_health['earliestRecordDate'] = earliest_date_str
+        #     list_data_source_objects.append(data_source_object_apple_health)
     
         logger_bp_users.info(f"- Returning dashboard_table_object list: {list_data_source_objects} -")
         logger_bp_users.info(f"- END send_data_source_objects -")
-        return list_data_source_objects
+        return "Success",list_data_source_objects
 
     except Exception as e:
         logger_bp_users.error(f"An error occurred in send_data_source_objects)")
         logger_bp_users.info(f"{type(e).__name__}: {e}")
         logger_bp_users.info(f"- END send_data_source_objects -")
-        return []
+        return "Could be anything",[]
+
+
+def create_dashboard_table_objects(current_user, db_session):
+    logger_bp_users.info(f"- accessed  create_dashboard_table_objects -")
+
+    user_data_table_array_json_file_name = f"data_table_objects_array_{current_user.id:04}.json"
+    json_data_path_and_name = os.path.join(current_app.config.get('DASHBOARD_FILES_DIR'), user_data_table_array_json_file_name)
+    logger_bp_users.info(f"- Dashboard table object file name and path: {json_data_path_and_name} -")
+    try:
+        with open(json_data_path_and_name,'r') as dashboard_json_file:
+            dashboard_table_object_array = json.load(dashboard_json_file)
+            return "Success",dashboard_table_object_array
+    except FileNotFoundError:
+        error_message = f"File not found: {json_data_path_and_name}"
+        logger_bp_users.info(f"No file was found: {json_data_path_and_name}")
+        return "File not found",[]
+    except Exception as e:
+        logger_bp_users.info(f"{type(e).__name__}: {e}")
+        logger_bp_users.info(f"Unable to create dash_table_array, error: {e}")
+        return "Could be anything",[]
+

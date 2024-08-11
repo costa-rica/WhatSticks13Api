@@ -15,7 +15,8 @@ import socket
 from app_package._common.token_decorator import token_required
 from app_package.bp_users.utils import send_confirm_email, send_reset_email, delete_user_from_table, \
     delete_user_data_files, get_apple_health_count_date, delete_user_daily_csv, \
-    create_user_obj_for_swift_login, create_data_source_object
+    create_user_obj_for_swift_login, create_data_source_object, \
+    create_dashboard_table_objects
 # from sqlalchemy import desc
 from ws_utilities import convert_lat_lon_to_timezone_string, convert_lat_lon_to_city_country, \
     find_user_location, add_user_loc_day_process
@@ -82,8 +83,13 @@ def login():
             response_dict['alert_title'] = "Success"
             response_dict['alert_message'] = ""
             response_dict['user'] = user_object_for_swift_app
-            response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
-
+            # response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
+            data_src_obj_status_str, list_data_source_objects =  create_data_source_object(user, db_session)
+            if data_src_obj_status_str == "Success":
+                response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
+            dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
+            if dash_table_obj_status_str == "Success":
+                response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
             logger_bp_users.info(f"- response_dict: {response_dict} -")
             return jsonify(response_dict)
 
@@ -145,8 +151,12 @@ def login_generic_account():
     response_dict['alert_title'] = "Success"
     response_dict['alert_message'] = ""
     response_dict['user'] = user_object_for_swift_app
-    response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
-
+    data_src_obj_status_str, list_data_source_objects =  create_data_source_object(user, db_session)
+    if data_src_obj_status_str == "Success":
+        response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
+    dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
+    if dash_table_obj_status_str == "Success":
+        response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
     logger_bp_users.info(f"- response_dict: {response_dict} -")
     return jsonify(response_dict)
 
@@ -474,41 +484,31 @@ def send_data_source_objects(current_user):
     logger_bp_users.info(f"- accessed  send_data_source_objects endpoint-")
     db_session = g.db_session
 
-    list_data_source_objects = create_data_source_object(current_user, db_session)
+    data_src_obj_status_str, list_data_source_objects = create_data_source_object(current_user, db_session)
 
-    if len(list_data_source_objects)>0:
-        logger_bp_users.info("found data in list_data_source_objects")
-        logger_bp_users.info(list_data_source_objects)
-        return jsonify(list_data_source_objects)
-    else:
-        logger_bp_users.info("-Did NOT found data in list_data_source_objects")
-        return jsonify({"error": "An unexpected error occurred"}), 500
+    match data_src_obj_status_str:
+        case "Could be anything":
+            return jsonify({"error": "An unexpected error occurred"}), 500
+        case "Success":
+            return jsonify(list_data_source_objects)
 
-@bp_users.route('/send_dashboard_table_objects', methods=['POST'])
+
+@bp_users.route('/send_dashboard_table_objects', methods=['GET'])
 @token_required
 def send_dashboard_table_objects(current_user):
     logger_bp_users.info(f"- accessed  send_dashboard_table_objects endpoint-")
-    
-    user_data_table_array_json_file_name = f"data_table_objects_array_{current_user.id:04}.json"
-    json_data_path_and_name = os.path.join(current_app.config.get('DASHBOARD_FILES_DIR'), user_data_table_array_json_file_name)
-    logger_bp_users.info(f"- Dashboard table object file name and path: {json_data_path_and_name} -")
-    try:
-        with open(json_data_path_and_name,'r') as dashboard_json_file:
-            dashboard_table_object_array = json.load(dashboard_json_file)
-    
-        logger_bp_users.info(f"- Returning dashboard_table_object list: {dashboard_table_object_array} -")
-        logger_bp_users.info(f"- END send_dashboard_table_objects -")
-        return jsonify(dashboard_table_object_array)
-    except FileNotFoundError:
-        error_message = f"File not found: {json_data_path_and_name}"
-        logger_bp_users.error(error_message)
-        logger_bp_users.info(f"- END send_dashboard_table_objects -")
-        return jsonify({"error": error_message}), 404
+    db_session = g.db_session
 
-    except Exception as e:
-        logger_bp_users.info(f"{type(e).__name__}: {e}")
-        logger_bp_users.info(f"- END send_dashboard_table_objects -")
-        return jsonify({"error": "An unexpected error occurred"}), 500
+    dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
+    match dash_table_obj_status_str:
+        case "File not found":
+            return jsonify({"error": 
+                f"No data_table_objects_array_{current_user.id:04}.json file exists on Server"}), 404
+        case "Could be anything":
+            return jsonify({"error": "An unexpected error occurred"}), 500
+        case "Success":
+            return jsonify(dashboard_table_object_array)
+
 
 # this get's sent at login
 @bp_users.route('/delete_user', methods=['POST'])
