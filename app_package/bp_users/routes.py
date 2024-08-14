@@ -664,85 +664,14 @@ def reset_password(current_user):
 
         return jsonify(response_dict)
 
-# Maybe delete ?
-@bp_users.route('/update_user_location_with_lat_lon', methods=["POST"])
+
+
+# This replaces /update_user_location_with_lat_lon AND /update_user_location_with_user_location_json
+@bp_users.route('/update_user_location_details', methods=["POST"])
 @token_required
-def update_user_location_with_lat_lon(current_user):
-    logger_bp_users.info(f"- update_user_location_with_lat_lon endpoint pinged -")
+def update_user_location_details(current_user):
+    logger_bp_users.info(f"- in update_user_location_details -")
     db_session = g.db_session
-    try:
-        request_json = request.json
-        logger_bp_users.info(f"request_json: {request_json}")
-    except Exception as e:
-        logger_bp_users.info(f"failed to read json in update_user_location_with_lat_lon")
-        logger_bp_users.info(f"{type(e).__name__}: {e}")
-        response = jsonify({"error": str(e)})
-        return make_response(response, 400)
-
-
-    if request_json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
-        response_dict = {}
-        response_dict['alert_title'] = ""
-        response_dict['alert_message'] = f"Invalid API password"
-        # return jsonify(response_dict)
-        return jsonify(response_dict), 401
-
-    logger_bp_users.info(f"location_permission_device type: {type(request_json.get('location_permission_device'))}")
-    logger_bp_users.info(f"location_permission_device value: {request_json.get('location_permission_device')}")
-
-
-    #update permission
-    location_permission_device = request_json.get('location_permission_device') == "True"
-    location_permission_ws = request_json.get('location_permission_ws') == "True"
-
-    current_user.location_permission_device=location_permission_device
-    current_user.location_permission_ws=location_permission_ws
-
-    logger_bp_users.info(f"**** location_permission_device: {location_permission_device} ******")
-    logger_bp_users.info(f"**** location_permission_ws: {location_permission_ws} ******")
-
-    response_dict = {}
-    user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
-
-    if 'latitude' not in request_json.keys():
-        response_dict['user'] = user_object_for_swift_app
-        response_dict["alert_message"] = f"Updated status to reoccuring data collection. But no initial location was sent."
-        logger_bp_users.info(f"- response_dict: {response_dict} ")
-        return jsonify(response_dict)
-
-    # Add to User's table
-    latitude = float(request_json.get('latitude'))
-    longitude = float(request_json.get('longitude'))
-
-    timezone_str = convert_lat_lon_to_timezone_string(latitude, longitude)
-    current_user.lat = latitude
-    current_user.lon = longitude
-    current_user.timezone = timezone_str
-
-    # Get the current datetime
-    current_utc_datetime = datetime.utcnow()
-
-    # Convert the datetime to a string in the specified format
-    formatted_datetime_utc = current_utc_datetime.strftime('%Y%m%d-%H%M')
-
-    # Add to UserLocationDay (and Location, if necessary)
-    location_id = add_user_loc_day_process(db_session, current_user.id,latitude, longitude, formatted_datetime_utc)
-
-    user_location = db_session.get(Locations, location_id)
-    user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
-    response_dict["alert_message"] = f"Updated user location in UserLocDay Table with {user_location.city}, {user_location.country}"
-    response_dict['user'] = user_object_for_swift_app
-    logger_bp_users.info(f"- response_dict: {response_dict} ")
-    return jsonify(response_dict)
-
-
-
-@bp_users.route('/update_user_location_with_user_location_json', methods=["POST"])
-@token_required
-def update_user_location_with_user_location_json(current_user):
-    logger_bp_users.info(f"- update_user_location_with_user_location_json endpoint pinged -")
-    db_session = g.db_session
-    logger_bp_users.info(f"- created db_session id: {id(db_session)} -")
     try:
         request_json = request.json
         logger_bp_users.info(f"request_json: {request_json}")
@@ -751,39 +680,185 @@ def update_user_location_with_user_location_json(current_user):
         logger_bp_users.info(f"{type(e).__name__}: {e}")
         response = jsonify({"error": str(e)})
         return make_response(response, 400)
-
-    user_location_list = request_json.get('user_location')
-    timestamp_str = request_json.get('timestamp_utc')
-    user_loction_filename = f"user_location-user_id{current_user.id}.json"
-    json_data_path_and_name = os.path.join(current_app.config.get('USER_LOCATION_JSON'),user_loction_filename)
-
-    with open(json_data_path_and_name, 'w') as file:
-        json.dump(user_location_list, file, indent=4)
     
-    # try:
-    for location in user_location_list:
-        formatted_datetime_utc = location.get('dateTimeUtc')
-        latitude = location.get('latitude')
-        longitude = location.get('longitude')
-        add_user_loc_day_process(db_session, current_user.id, latitude, longitude, formatted_datetime_utc)
+    # Update user status for 1) location_permission_device and 2) location_permission_ws
+    # if .get() == null, this will be false - already checked 2024-08-14
+    location_permission_device = request_json.get('location_permission_device') == "True"
+    location_permission_ws = request_json.get('location_permission_ws') == "True"
+    current_user.location_permission_device=location_permission_device
+    current_user.location_permission_ws=location_permission_ws
 
-    logger_bp_users.info(f"- successfully added user_location.json data to UserLocationDay -")
+    # recieve user_location.json and update UserLocDay
+    user_location_list = request_json.get('user_location')
+    if user_location_list:
+        logger_bp_users.info(f"- ADDing User Location Day -")
+        user_loction_filename = f"user_location-user_id{current_user.id}.json"
+        json_data_path_and_name = os.path.join(current_app.config.get('USER_LOCATION_JSON'),user_loction_filename)
 
+        with open(json_data_path_and_name, 'w') as file:
+            json.dump(user_location_list, file, indent=4)
+        
+        for location in user_location_list:
+            formatted_datetime_utc = location.get('dateTimeUtc')
+            latitude = location.get('latitude')
+            longitude = location.get('longitude')
+            add_user_loc_day_process(db_session, current_user.id, latitude, longitude, formatted_datetime_utc)
+
+        # add_user_loc_day_process already flushes locations
+        # db_session.flush()
+
+        # Use userLocDay to update user Table User table timezone
+        for count, loc_day in enumerate(db_session.get(Users,current_user.id).loc_day):
+            if count == 0:
+                most_current_date = loc_day.date_utc_user_check_in
+                most_current_date_timezone_str = db_session.get(Locations,loc_day.location_id).tz_id
+            elif loc_day.date_utc_user_check_in > most_current_date:
+                most_current_date = loc_day.date_utc_user_check_in
+                most_current_date_timezone_str = db_session.get(Locations,loc_day.location_id).tz_id
+
+        current_user.timezone = most_current_date_timezone_str
+
+    logger_bp_users.info(f"- successfully finished /update_user_location_details route -")
     response_dict = {}
     response_dict['alert_title'] = "Success!"# < -- This is expected response for WSiOS to delete old user_locations.json
     response_dict['alert_message'] = ""
 
     return jsonify(response_dict)
-    # except Exception as e:
-    #     logger_bp_users.info(f"- Error trying to add user_location.json from iOS -")
-    #     logger_bp_users.info(f"- {type(e).__name__}: {e} -")
 
-    #     response_dict = {}
-    #     response_dict['alert_title'] = "Failed"
-    #     response_dict['alert_message'] = "Something went wrong adding user's location to database."
 
-    #     return jsonify(response_dict)
 
+# # This route does
+# # - receieves:
+# # -- location_permission_device
+# # -- location_permission_ws
+# # -- latitude, longitude 
+# # - creates a timezone_str ( via convert_lat_lon_to_timezone_string())
+# # - Add to UserLocationDay (and Location, if necessary) (via add_user_loc_day_process())
+# # Maybe delete ?
+# @bp_users.route('/update_user_location_with_lat_lon', methods=["POST"])
+# @token_required
+# def update_user_location_with_lat_lon(current_user):
+#     logger_bp_users.info(f"- update_user_location_with_lat_lon endpoint pinged -")
+#     db_session = g.db_session
+#     try:
+#         request_json = request.json
+#         logger_bp_users.info(f"request_json: {request_json}")
+#     except Exception as e:
+#         logger_bp_users.info(f"failed to read json in update_user_location_with_lat_lon")
+#         logger_bp_users.info(f"{type(e).__name__}: {e}")
+#         response = jsonify({"error": str(e)})
+#         return make_response(response, 400)
+
+
+#     if request_json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
+#         response_dict = {}
+#         response_dict['alert_title'] = ""
+#         response_dict['alert_message'] = f"Invalid API password"
+#         # return jsonify(response_dict)
+#         return jsonify(response_dict), 401
+
+#     logger_bp_users.info(f"location_permission_device type: {type(request_json.get('location_permission_device'))}")
+#     logger_bp_users.info(f"location_permission_device value: {request_json.get('location_permission_device')}")
+
+
+#     #update permission
+#     location_permission_device = request_json.get('location_permission_device') == "True"
+#     location_permission_ws = request_json.get('location_permission_ws') == "True"
+
+#     current_user.location_permission_device=location_permission_device
+#     current_user.location_permission_ws=location_permission_ws
+
+#     logger_bp_users.info(f"**** location_permission_device: {location_permission_device} ******")
+#     logger_bp_users.info(f"**** location_permission_ws: {location_permission_ws} ******")
+
+#     response_dict = {}
+#     user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
+
+#     if 'latitude' not in request_json.keys():
+#         response_dict['user'] = user_object_for_swift_app
+#         response_dict["alert_message"] = f"Updated status to reoccuring data collection. But no initial location was sent."
+#         logger_bp_users.info(f"- response_dict: {response_dict} ")
+#         return jsonify(response_dict)
+
+#     # Add to User's table
+#     latitude = float(request_json.get('latitude'))
+#     longitude = float(request_json.get('longitude'))
+
+#     timezone_str = convert_lat_lon_to_timezone_string(latitude, longitude)
+#     current_user.lat = latitude
+#     current_user.lon = longitude
+#     current_user.timezone = timezone_str
+
+#     # Get the current datetime
+#     current_utc_datetime = datetime.utcnow()
+
+#     # Convert the datetime to a string in the specified format
+#     formatted_datetime_utc = current_utc_datetime.strftime('%Y%m%d-%H%M')
+
+#     # Add to UserLocationDay (and Location, if necessary)
+#     location_id = add_user_loc_day_process(db_session, current_user.id,latitude, longitude, formatted_datetime_utc)
+
+#     user_location = db_session.get(Locations, location_id)
+#     user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
+#     response_dict["alert_message"] = f"Updated user location in UserLocDay Table with {user_location.city}, {user_location.country}"
+#     response_dict['user'] = user_object_for_swift_app
+#     logger_bp_users.info(f"- response_dict: {response_dict} ")
+#     return jsonify(response_dict)
+
+
+# # This route does
+# # - receieves:
+# # -- user_location
+# # -- timestamp_utc
+# # - creates/appends existing user's f"user_location-user_id{current_user.id}.json" file
+# # - Add to UserLocationDay (and Location, if necessary) (via add_user_loc_day_process()) <--- Same in both routes
+
+# @bp_users.route('/update_user_location_with_user_location_json', methods=["POST"])
+# @token_required
+# def update_user_location_with_user_location_json(current_user):
+#     logger_bp_users.info(f"- update_user_location_with_user_location_json endpoint pinged -")
+#     db_session = g.db_session
+#     logger_bp_users.info(f"- created db_session id: {id(db_session)} -")
+#     try:
+#         request_json = request.json
+#         logger_bp_users.info(f"request_json: {request_json}")
+#     except Exception as e:
+#         logger_bp_users.info(f"failed to read json in update_user_location_with_user_location_json")
+#         logger_bp_users.info(f"{type(e).__name__}: {e}")
+#         response = jsonify({"error": str(e)})
+#         return make_response(response, 400)
+
+#     user_location_list = request_json.get('user_location')
+#     timestamp_str = request_json.get('timestamp_utc')
+#     user_loction_filename = f"user_location-user_id{current_user.id}.json"
+#     json_data_path_and_name = os.path.join(current_app.config.get('USER_LOCATION_JSON'),user_loction_filename)
+
+#     with open(json_data_path_and_name, 'w') as file:
+#         json.dump(user_location_list, file, indent=4)
+    
+#     # try:
+#     for location in user_location_list:
+#         formatted_datetime_utc = location.get('dateTimeUtc')
+#         latitude = location.get('latitude')
+#         longitude = location.get('longitude')
+#         add_user_loc_day_process(db_session, current_user.id, latitude, longitude, formatted_datetime_utc)
+
+#     logger_bp_users.info(f"- successfully added user_location.json data to UserLocationDay -")
+
+#     response_dict = {}
+#     response_dict['alert_title'] = "Success!"# < -- This is expected response for WSiOS to delete old user_locations.json
+#     response_dict['alert_message'] = ""
+
+#     return jsonify(response_dict)
+#     # except Exception as e:
+#     #     logger_bp_users.info(f"- Error trying to add user_location.json from iOS -")
+#     #     logger_bp_users.info(f"- {type(e).__name__}: {e} -")
+
+#     #     response_dict = {}
+#     #     response_dict['alert_title'] = "Failed"
+#     #     response_dict['alert_message'] = "Something went wrong adding user's location to database."
+
+#     #     return jsonify(response_dict)
 
 
 
