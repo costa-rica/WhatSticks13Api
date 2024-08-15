@@ -51,6 +51,15 @@ def login():
         return jsonify(response_dict)
     #############################################################################################
 
+    # # NOTE: Implement this
+    # if request_json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
+    #     logger_bp_users.info(f"- Didn't get the password")
+    #     response_dict = {}
+    #     response_dict['alert_title'] = ""
+    #     response_dict['alert_message'] = f"Invalid API password"
+    #     # return jsonify(response_dict)
+    #     return jsonify(response_dict), 401
+
     auth = request.authorization
     logger_bp_users.info(f"- auth.username: {auth.username} -")
 
@@ -681,6 +690,7 @@ def update_user_location_details(current_user):
         response = jsonify({"error": str(e)})
         return make_response(response, 400)
     
+    
     if request_json.get('location_permission_device') and request_json.get('location_permission_ws'):
         # Update user status for 1) location_permission_device and 2) location_permission_ws
         # if .get() == null, this will be false - already checked 2024-08-14
@@ -688,6 +698,8 @@ def update_user_location_details(current_user):
         location_permission_ws = request_json.get('location_permission_ws') == "True"
         current_user.location_permission_device=location_permission_device
         current_user.location_permission_ws=location_permission_ws
+
+        user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
 
     # recieve user_location.json and update UserLocDay
     user_location_list = request_json.get('user_location')
@@ -723,6 +735,10 @@ def update_user_location_details(current_user):
     response_dict = {}
     response_dict['alert_title'] = "Success!"# < -- This is expected response for WSiOS to delete old user_locations.json
     response_dict['alert_message'] = ""
+    try:
+        response_dict['user'] = user_object_for_swift_app
+    except:
+        logger_bp_users.info(f"- no update to user table -")
 
     return jsonify(response_dict)
 
