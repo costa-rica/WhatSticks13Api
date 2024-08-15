@@ -681,12 +681,13 @@ def update_user_location_details(current_user):
         response = jsonify({"error": str(e)})
         return make_response(response, 400)
     
-    # Update user status for 1) location_permission_device and 2) location_permission_ws
-    # if .get() == null, this will be false - already checked 2024-08-14
-    location_permission_device = request_json.get('location_permission_device') == "True"
-    location_permission_ws = request_json.get('location_permission_ws') == "True"
-    current_user.location_permission_device=location_permission_device
-    current_user.location_permission_ws=location_permission_ws
+    if request_json.get('location_permission_device') and request_json.get('location_permission_ws'):
+        # Update user status for 1) location_permission_device and 2) location_permission_ws
+        # if .get() == null, this will be false - already checked 2024-08-14
+        location_permission_device = request_json.get('location_permission_device') == "True"
+        location_permission_ws = request_json.get('location_permission_ws') == "True"
+        current_user.location_permission_device=location_permission_device
+        current_user.location_permission_ws=location_permission_ws
 
     # recieve user_location.json and update UserLocDay
     user_location_list = request_json.get('user_location')
