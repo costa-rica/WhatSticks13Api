@@ -690,12 +690,16 @@ def update_user_location_details(current_user):
         response = jsonify({"error": str(e)})
         return make_response(response, 400)
     
+    logger_bp_users.info(f"- WHAT ARE location_permission_device and location_permission_ws ???-")
+    logger_bp_users.info(f"- location_permission_device: {request_json.get('location_permission_device')}, {type(request_json.get('location_permission_device'))}-")
+    logger_bp_users.info(f"- location_permission_ws: {request_json.get('location_permission_ws')}, {type(request_json.get('location_permission_ws'))}-")
     
     if request_json.get('location_permission_device') and request_json.get('location_permission_ws'):
+        logger_bp_users.info(f"- IF statement for location_permission_device AND location_permission_ws-")
         # Update user status for 1) location_permission_device and 2) location_permission_ws
         # if .get() == null, this will be false - already checked 2024-08-14
-        location_permission_device = request_json.get('location_permission_device') == "True"
-        location_permission_ws = request_json.get('location_permission_ws') == "True"
+        location_permission_device = request_json.get('location_permission_device')
+        location_permission_ws = request_json.get('location_permission_ws')
         current_user.location_permission_device=location_permission_device
         current_user.location_permission_ws=location_permission_ws
 
