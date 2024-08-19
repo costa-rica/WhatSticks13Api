@@ -716,7 +716,7 @@ def update_user_location_details(current_user):
             json.dump(user_location_list, file, indent=4)
         
         for location in user_location_list:
-            formatted_datetime_utc = location.get('dateTimeUtc')
+            formatted_datetime_utc = location.get('timestampString')
             latitude = location.get('latitude')
             longitude = location.get('longitude')
             add_user_loc_day_process(db_session, current_user.id, latitude, longitude, formatted_datetime_utc)
