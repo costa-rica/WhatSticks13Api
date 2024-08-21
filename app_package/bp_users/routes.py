@@ -16,7 +16,7 @@ from app_package._common.token_decorator import token_required
 from app_package.bp_users.utils import send_confirm_email, send_reset_email, delete_user_from_table, \
     delete_user_data_files, get_apple_health_count_date, delete_user_daily_csv, \
     create_user_obj_for_swift_login, create_data_source_object, \
-    create_dashboard_table_objects
+    create_dashboard_table_objects, create_new_ambivalent_elf_user
 # from sqlalchemy import desc
 from ws_utilities import convert_lat_lon_to_timezone_string, convert_lat_lon_to_city_country, \
     find_user_location, add_user_loc_day_process
@@ -106,6 +106,7 @@ def login():
     return make_response('Could not verify', 401)
 
 
+
 @bp_users.route('/login_generic_account',methods=['POST'])
 def login_generic_account():
     logger_bp_users.info(f"- in login_generic_account -")
@@ -137,13 +138,13 @@ def login_generic_account():
     username = request_json.get('username')
     user = db_session.query(Users).filter_by(username= username).first()
 
-    if not user or username[:len("ambivalent_elf_")] != "ambivalent_elf_":
-        response_dict = {}
-        response_dict['alert_title'] = ""
-        response_dict['alert_message'] = f"No user found"
-        return jsonify(response_dict), 400
+    # # if ambivalent_elf_#### not found in Server Db then make new user 
+    if not user:
+        logger_bp_users.info(f"- Username: {username} not found.")
+        user = create_new_ambivalent_elf_user(db_session)
+        logger_bp_users.info(f"- Created new account with Username: {user.username}.")        
 
-    logger_bp_users.info(f"user: {user}")
+    logger_bp_users.info(f"- logging in user: {user}")
 
     user_object_for_swift_app = create_user_obj_for_swift_login(user, db_session)
     
@@ -254,32 +255,7 @@ def register_generic_account():
         # return jsonify(response_dict)
         return jsonify({'error': 'Invalid API password'}), 401
 
-    # verify "ambivalent_elf_" is not in db -- which should always be the case
-    new_username = "ambivalent_elf_"
-    user_exists = db_session.query(Users).filter_by(username= new_username).first()
-    if user_exists:
-        logger_bp_users.info(f"- removeing  ambivalent_elf_ -")
-        #################################
-        # Delete this account because there should never be an "ambivalent_elf_"
-        delete_apple_health_qty_cat = delete_user_from_table(user_exists, AppleHealthQuantityCategory)
-        delete_apple_health_workouts = delete_user_from_table(user_exists, AppleHealthWorkout)
-        delete_user_location_day = delete_user_from_table(user_exists, UserLocationDay)
-        # delete: dataframe pickle, data source json, and dashboard json
-        delete_user_data_files(user_exists)
-        # delete user daily CSV files that display on the website user home page:
-        delete_user_daily_csv(user_exists)
-        delete_user_from_users_table = delete_user_from_table(user_exists, Users)
-    
-    logger_bp_users.info(f"- setting up the real ambiv_elf_#### -")
-    new_user = Users(username=new_username)
-
-    #Add user to get user_id
-    db_session.add(new_user)
-    db_session.flush()
-    user_id = new_user.id
-    new_username = "ambivalent_elf_"+f"{user_id:04}"
-    new_user.username = new_username
-    logger_bp_users.info(f"- new user is {new_username} -")
+    new_user = create_new_ambivalent_elf_user(db_session)
     user_object_for_swift_app = create_user_obj_for_swift_login(new_user, db_session)
     
     response_dict = {}
@@ -288,7 +264,7 @@ def register_generic_account():
     # response_dict['id'] = "the numbrer 4"
     response_dict['user'] = user_object_for_swift_app
     response_dict["id"] = f"{new_user.id}"
-    response_dict["username"] = f"{new_username}"
+    response_dict["username"] = f"{new_user.username}"
     logger_bp_users.info(f"- Successfully registered response_dict: {response_dict}  -")
     return jsonify(response_dict)
         

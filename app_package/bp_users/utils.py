@@ -231,3 +231,32 @@ def create_dashboard_table_objects(current_user, db_session):
         logger_bp_users.info(f"Unable to create dash_table_array, error: {e}")
         return "Could be anything",[]
 
+def create_new_ambivalent_elf_user(db_session):
+
+    new_username = "ambivalent_elf_"
+    user_exists = db_session.query(Users).filter_by(username= new_username).first()
+    if user_exists:
+        logger_bp_users.info(f"- removeing  ambivalent_elf_ -")
+        #################################
+        # Delete this account because there should never be an "ambivalent_elf_"
+        delete_apple_health_qty_cat = delete_user_from_table(user_exists, AppleHealthQuantityCategory)
+        delete_apple_health_workouts = delete_user_from_table(user_exists, AppleHealthWorkout)
+        delete_user_location_day = delete_user_from_table(user_exists, UserLocationDay)
+        # delete: dataframe pickle, data source json, and dashboard json
+        delete_user_data_files(user_exists)
+        # delete user daily CSV files that display on the website user home page:
+        delete_user_daily_csv(user_exists)
+        delete_user_from_users_table = delete_user_from_table(user_exists, Users)
+
+    new_user = Users(username=new_username)
+
+    #Add user to get user_id
+    db_session.add(new_user)
+    db_session.flush()
+    user_id = new_user.id
+    new_username = "ambivalent_elf_"+f"{user_id:04}"
+    new_user.username = new_username
+    logger_bp_users.info(f"- new user is {new_username} -")
+    # user_object_for_swift_app = create_user_obj_for_swift_login(new_user, db_session)
+
+    return new_user
