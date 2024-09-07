@@ -1,11 +1,11 @@
 from flask import Blueprint
 from flask import request, jsonify, make_response, current_app, g
 from ws_models import DatabaseSession, Users, AppleHealthQuantityCategory, \
-    AppleHealthWorkout, UserLocationDay, Locations
+    AppleHealthWorkout, UserLocationDay, Locations, PendingUsers
 from werkzeug.security import generate_password_hash, check_password_hash #password hashing
 import bcrypt
 from datetime import datetime
-from itsdangerous.url_safe import URLSafeTimedSerializer#new 2023 <---- DELETE ?????
+from itsdangerous.url_safe import URLSafeTimedSerializer
 import logging
 import os
 from logging.handlers import RotatingFileHandler
@@ -16,7 +16,8 @@ from app_package._common.token_decorator import token_required
 from app_package.bp_users.utils import send_confirm_email, send_reset_email, delete_user_from_table, \
     delete_user_data_files, get_apple_health_count_date, delete_user_daily_csv, \
     create_user_obj_for_swift_login, create_data_source_object, \
-    create_dashboard_table_objects, create_new_ambivalent_elf_user
+    create_dashboard_table_objects, create_new_ambivalent_elf_user, \
+    send_confirmation_request_email
 # from sqlalchemy import desc
 from ws_utilities import convert_lat_lon_to_timezone_string, convert_lat_lon_to_city_country, \
     find_user_location, add_user_loc_day_process
@@ -307,8 +308,6 @@ def convert_generic_account_to_custom_account(current_user):
         response_dict["alert_message"] = f""
         return jsonify(response_dict)
 
-
-
     user_exists = db_session.query(Users).filter_by(email= new_email).first()
 
     logger_bp_users.info(f"- user_exists: {user_exists} -")
@@ -433,24 +432,96 @@ def convert_generic_account_to_custom_account(current_user):
             return jsonify(response_dict), 409
     else:
         #################################
-        # Update user generic
-        current_user.email = new_email
-        current_user.username = new_email.split('@')[0]
-        hash_pw = bcrypt.hashpw(new_password.encode(), salt)
-        current_user.password = hash_pw
-        db_session.flush()
-        user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
+        # Update UsersPending table
+        # send email with verification
+        # current_user.email = new_email
+        # current_user.username = new_email.split('@')[0]
+        pending_user = db_session.get(PendingUsers,current_user.id)
+        if pending_user:
+            delete_user_from_users_table = delete_user_from_table(current_user, PendingUsers)
 
-        if new_email not in current_app.config.get('LIST_NO_CONFIRMASTION_EMAILS'):
-            send_confirm_email(new_email)
+        new_pending_user = PendingUsers(user_id=current_user.id, email = new_email)
+        hash_pw = bcrypt.hashpw(new_password.encode(), salt)
+        new_pending_user.password = hash_pw
+        db_session.add(new_pending_user)
+        db_session.flush()
+
+        # user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
+
+        # if new_email not in current_app.config.get('LIST_NO_CONFIRMASTION_EMAILS'):
+        #     send_confirm_email(new_email)
+        # serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+        serializer = URLSafeTimedSerializer(current_app.config.get('SECRET_KEY'))
+        serialized_token = serializer.dumps({'user_id': current_user.id})
+
+        # url_for_confirmation = request.base_url
+        host_url = request.host_url
+        logger_bp_users.info(f"- host_url: {host_url} -")
+        logger_bp_users.info(f"- host_url (type): {type(host_url)} -")
+
+
+        send_confirmation_request_email(new_email, serialized_token, host_url)
 
         response_dict = {}
-        response_dict["message"] = f"new user created: {new_email}"
-        response_dict['user'] = user_object_for_swift_app
+        response_dict["message"] = f"Check email and validate this request: {new_email}"
+        # response_dict['user'] = user_object_for_swift_app
         response_dict["alert_title"] = f"Success!"
-        response_dict["alert_message"] = f""
-        logger_bp_users.info(f"- Successfully converted acccount response_dict: {response_dict}  -")
+        response_dict["alert_message"] = f"Check email and validate this request: {new_email}"
+        logger_bp_users.info(f"- Successfully converted account response_dict: {response_dict}  -")
         return jsonify(response_dict)
+
+
+
+@bp_users.route("/receive_email_validation/<serialized_token>", methods=["POST"])
+def receive_email_validation(serialized_token):
+    logger_bp_users.info(f"- in receive_email_validation  ---")
+    logger_bp_users.info(f"- serialized_token: {serialized_token}  ---")
+    db_session = g.db_session
+    serializer = URLSafeTimedSerializer(current_app.config.get('SECRET_KEY'))
+    response_dict = {}
+
+    try:
+        payload = serializer.loads(serialized_token, max_age=1000)
+        user_id = payload.get("user_id")
+        logger_bp_users.info(f"- payload: {payload}  ---")
+        logger_bp_users.info(f"- user_id: {user_id}  ---")
+    except Exception as e:
+        logger_bp_users.info(f"failed to read token")
+        logger_bp_users.info(f"{type(e).__name__}: {e}")
+        
+        response_dict['alert_title'] = ""
+        response_dict['alert_message'] = f"Invalid Token"
+        return jsonify(response_dict), 401
+    
+    try: 
+        # pending_user = db_session.get(PendingUsers,user_id)
+        pending_user = db_session.query(PendingUsers).filter_by(user_id= user_id).first()
+    except Exception as e:
+        logger_bp_users.info(f"failed to find Pending User")
+        logger_bp_users.info(f"{type(e).__name__}: {e}")
+        # response_dict = {}
+        response_dict['alert_title'] = ""
+        response_dict['alert_message'] = f"Failed to find Pending User"
+        # return jsonify(response_dict)
+        return jsonify(response_dict), 401
+
+    existing_user = db_session.query(Users).filter_by(id= user_id).first()
+    existing_user.email = pending_user.email
+    existing_user.username = pending_user.email.split('@')[0]
+    existing_user.password = pending_user.password
+    db_session.flush()
+    user_object_for_swift_app = create_user_obj_for_swift_login(existing_user, db_session)
+
+    delete_user_from_users_table = delete_user_from_table(existing_user, PendingUsers)
+    # response_dict = {}
+    response_dict["message"] = f"User updated: {existing_user.new_email}"
+    response_dict['user'] = user_object_for_swift_app
+    response_dict["alert_title"] = f"Successfully updated user!"
+    response_dict['alert_message'] = f""
+    logger_bp_users.info(f"- response_dict: {response_dict}")
+    return jsonify(response_dict)
+
+
 
 
 # this get's sent at login

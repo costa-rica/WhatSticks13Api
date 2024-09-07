@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, g
+from flask import Blueprint, jsonify, g, current_app
 import werkzeug.exceptions
 from app_package._common.utilities import custom_logger, wrap_up_session
 
@@ -39,8 +39,8 @@ def handle_exception(e):
     error_type = type(e).__name__
 
     response_dict = {
-        'alert_title': "Error",
-        'alert_message': f"Error Type: {error_type}, Error Code: {error_code}"
+        'alert_title': "Unexpected Error",
+        'alert_message': f"Try again, or send an email to {current_app.config.get('MAIL_USERNAME')}. Error Type: {error_type}, Error Code: {error_code}"
     }
 
     # Use the correct logger

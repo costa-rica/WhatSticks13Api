@@ -1,4 +1,4 @@
-from flask import current_app, url_for
+from flask import current_app, url_for, render_template
 import json
 from ws_models import DatabaseSession, Users, Locations
 from flask_mail import Message
@@ -51,6 +51,24 @@ def send_confirm_email(email):
         logger_bp_users.info(f"-- email sent --")
     else :
         logger_bp_users.info(f"-- Non prod mode so no email sent --")
+
+#######
+# Function to send email requesting that the user confirm this is a good email address
+###############################
+def send_confirmation_request_email(email, serialized_token, host_url):
+    print(f"-- sending email to {email} --")
+
+    msg = Message('Email Confirmation for What Sticks 13',
+        sender=current_app.config.get('MAIL_USERNAME'),
+        recipients=[email])
+    # msg = Message('Confirm Your Email Address', recipients=['recipient@example.com'])
+    # print(f"{render_template('confirm_email.html')}")
+    # Render HTML from template
+    msg.html = render_template('validate_email_email.html', serialized_token=serialized_token,
+        host_url=host_url)
+    mail.send(msg)
+    print(f"-- email sent --")
+
 
 def delete_user_data_files(current_user):
     

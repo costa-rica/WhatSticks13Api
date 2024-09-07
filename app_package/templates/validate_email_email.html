@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Confirmation</title>
+</head>
+<body>
+    <h1>Email Confirmation</h1>
+    
+    <p>Please click the button below to validate your email address.</p>
+    
+    <form action="{{ host_url }}receive_email_validation/{{ serialized_token }}" method="POST">
+        <button type="submit" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            Validate Email
+        </button>
+    </form>
+
+    <p>If you didn’t request this, please ignore this email.</p>
+</body>
+</html>
