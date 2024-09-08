@@ -17,6 +17,7 @@ bp_errors = Blueprint('bp_errors', __name__)
 @bp_errors.app_errorhandler(Exception)
 def handle_exception(e):
     logger_bp_errors.info(f"--- in def handle_exception(e) ---")
+    logger_bp_errors.info(f"--- Exception: {e} ---")
     # Attempt to retrieve the db_session from g, if it has been set
     db_session = getattr(g, 'db_session', None)
     

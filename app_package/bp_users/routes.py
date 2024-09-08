@@ -121,7 +121,8 @@ def login_generic_account():
     #############################################################################################
     try:
         request_json = request.json
-        logger_bp_users.info(f"username: {request_json.get('username')}")
+        # logger_bp_users.info(f"username: {request_json.get('username')}")
+        logger_bp_users.info(f"user_id: {request_json.get('user_id')}")
     except Exception as e:
         logger_bp_users.info(f"failed to read json")
         logger_bp_users.info(f"{type(e).__name__}: {e}")
@@ -136,12 +137,14 @@ def login_generic_account():
         # return jsonify(response_dict)
         return jsonify(response_dict), 401
 
-    username = request_json.get('username')
-    user = db_session.query(Users).filter_by(username= username).first()
+    # username = request_json.get('username')
+    user_id = request_json.get('user_id')
+    # user = db_session.query(Users).filter_by(username= username).first()
+    user = db_session.get(Users, user_id)
 
     # # if ambivalent_elf_#### not found in Server Db then make new user 
     if not user:
-        logger_bp_users.info(f"- Username: {username} not found.")
+        logger_bp_users.info(f"- user_id: {user_id} not found.")
         user = create_new_ambivalent_elf_user(db_session)
         logger_bp_users.info(f"- Created new account with Username: {user.username}.")        
 
@@ -446,8 +449,6 @@ def convert_generic_account_to_custom_account(current_user):
         db_session.add(new_pending_user)
         db_session.flush()
 
-        # user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
-
         # if new_email not in current_app.config.get('LIST_NO_CONFIRMASTION_EMAILS'):
         #     send_confirm_email(new_email)
         # serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
@@ -458,7 +459,6 @@ def convert_generic_account_to_custom_account(current_user):
         host_url = request.host_url
         logger_bp_users.info(f"- host_url: {host_url} -")
         logger_bp_users.info(f"- host_url (type): {type(host_url)} -")
-
 
         send_confirmation_request_email(new_email, serialized_token, host_url)
 
@@ -514,7 +514,7 @@ def receive_email_validation(serialized_token):
 
     delete_user_from_users_table = delete_user_from_table(existing_user, PendingUsers)
     # response_dict = {}
-    response_dict["message"] = f"User updated: {existing_user.new_email}"
+    response_dict["message"] = f"User updated: {existing_user.email}"
     response_dict['user'] = user_object_for_swift_app
     response_dict["alert_title"] = f"Successfully updated user!"
     response_dict['alert_message'] = f""
