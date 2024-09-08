@@ -39,72 +39,72 @@ def are_we_working():
 
     return jsonify(f"Yes! We're up! in the {hostname} machine")
 
+# seems unnessary after branch register_04 commit 2024-09-08
+# @bp_users.route('/login',methods=['POST'])
+# def login():
+#     logger_bp_users.info(f"- login endpoint pinged -")
+#     db_session = g.db_session
+#     # time.sleep(10)
+#     #############################################################################################
+#     ## In case of emergency, ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT prevents users from logging in
+#     if current_app.config.get('ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT'):
+#         response_dict = response_dict_tech_difficulties_alert(response_dict = {})
+#         return jsonify(response_dict)
+#     #############################################################################################
 
-@bp_users.route('/login',methods=['POST'])
-def login():
-    logger_bp_users.info(f"- login endpoint pinged -")
-    db_session = g.db_session
-    # time.sleep(10)
-    #############################################################################################
-    ## In case of emergency, ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT prevents users from logging in
-    if current_app.config.get('ACTIVATE_TECHNICAL_DIFFICULTIES_ALERT'):
-        response_dict = response_dict_tech_difficulties_alert(response_dict = {})
-        return jsonify(response_dict)
-    #############################################################################################
+#     # # NOTE: Implement this
+#     # if request_json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
+#     #     logger_bp_users.info(f"- Didn't get the password")
+#     #     response_dict = {}
+#     #     response_dict['alert_title'] = ""
+#     #     response_dict['alert_message'] = f"Invalid API password"
+#     #     # return jsonify(response_dict)
+#     #     return jsonify(response_dict), 401
 
-    # # NOTE: Implement this
-    # if request_json.get('ws_api_password') != current_app.config.get('WS_API_PASSWORD'):
-    #     logger_bp_users.info(f"- Didn't get the password")
-    #     response_dict = {}
-    #     response_dict['alert_title'] = ""
-    #     response_dict['alert_message'] = f"Invalid API password"
-    #     # return jsonify(response_dict)
-    #     return jsonify(response_dict), 401
+#     auth = request.authorization
+#     logger_bp_users.info(f"- auth.username: {auth.username} -")
 
-    auth = request.authorization
-    logger_bp_users.info(f"- auth.username: {auth.username} -")
+#     if not auth or not auth.username or not auth.password:
+#         logger_bp_users.info(f"- /login failed: if not auth or not auth.username or not auth.password")
+#         return make_response('Could not verify', 401)
+#     logger_bp_users.info(f"- Checking Broken Pipe error -")
+#     logger_bp_users.info(f"- db_session ID: {id(db_session)} ")
+#     user = db_session.query(Users).filter_by(email= auth.username).first()
 
-    if not auth or not auth.username or not auth.password:
-        logger_bp_users.info(f"- /login failed: if not auth or not auth.username or not auth.password")
-        return make_response('Could not verify', 401)
-    logger_bp_users.info(f"- Checking Broken Pipe error -")
-    logger_bp_users.info(f"- db_session ID: {id(db_session)} ")
-    user = db_session.query(Users).filter_by(email= auth.username).first()
-
-    if not user:
-        logger_bp_users.info(f"- /login failed: if not user:")
-        return make_response('Could not verify - user not found', 401)
+#     if not user:
+#         logger_bp_users.info(f"- /login failed: if not user:")
+#         return make_response('Could not verify - user not found', 401)
     
-    if auth.password:
-        logger_bp_users.info(f"- ******************** -")
-        logger_bp_users.info(f"- Check Password -")
-        logger_bp_users.info(f"- Check Password -")
+#     if auth.password:
+#         logger_bp_users.info(f"- ******************** -")
+#         logger_bp_users.info(f"- Check Password -")
+#         logger_bp_users.info(f"- Check Password -")
         
 
-        logger_bp_users.info(f"- db password (user_exists.password): {user.password.encode()} -")
-        logger_bp_users.info(f"- submitted password (auth.password): {auth.password.encode()} -")
-        logger_bp_users.info(f"- Check Password -")
-        logger_bp_users.info(f"- ******************** -")
-        if bcrypt.checkpw(auth.password.encode(), user.password.encode()):
+#         logger_bp_users.info(f"- db password (user_exists.password): {user.password.encode()} -")
+#         logger_bp_users.info(f"- submitted password (auth.password): {auth.password.encode()} -")
+#         logger_bp_users.info(f"- Check Password -")
+#         logger_bp_users.info(f"- ******************** -")
+#         if bcrypt.checkpw(auth.password.encode(), user.password.encode()):
             
-            user_object_for_swift_app = create_user_obj_for_swift_login(user, db_session)
+#             user_object_for_swift_app = create_user_obj_for_swift_login(user, db_session)
             
-            response_dict = {}
-            response_dict['alert_title'] = "Success"
-            response_dict['alert_message'] = ""
-            response_dict['user'] = user_object_for_swift_app
-            # response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
-            data_src_obj_status_str, list_data_source_objects =  create_data_source_object(user, db_session)
-            if data_src_obj_status_str == "Success":
-                response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
-            dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(user, db_session)
-            if dash_table_obj_status_str == "Success":
-                response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
-            logger_bp_users.info(f"- response_dict: {response_dict} -")
-            return jsonify(response_dict)
+#             response_dict = {}
+#             response_dict['alert_title'] = "Success"
+#             response_dict['alert_message'] = ""
+#             response_dict['user'] = user_object_for_swift_app
+#             # response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
+#             data_src_obj_status_str, list_data_source_objects =  create_data_source_object(user, db_session)
+#             if data_src_obj_status_str == "Success":
+#                 response_dict['arryDataSourceObjects'] = create_data_source_object(user, db_session)
+#             dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(user, db_session)
+#             if dash_table_obj_status_str == "Success":
+#                 response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
+#             logger_bp_users.info(f"- response_dict: {response_dict} -")
+#             return jsonify(response_dict)
 
-    logger_bp_users.info(f"- /login failed: if auth.password:")
-    return make_response('Could not verify', 401)
+#     logger_bp_users.info(f"- /login failed: if auth.password:")
+#     return make_response('Could not verify', 401)
 
 
 
