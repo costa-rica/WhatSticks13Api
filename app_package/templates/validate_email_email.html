@@ -10,11 +10,12 @@
     
     <p>Please click the button below to validate your email address.</p>
     
-    <form action="{{ host_url }}receive_email_validation/{{ serialized_token }}" method="POST">
-        <button type="submit" style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
-            Validate Email
-        </button>
-    </form>
+
+    <a href="{{ host_url }}receive_email_validation/{{ serialized_token }}" 
+    style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; text-decoration: none;">
+        Validate Email
+    </a>
+
 
     <p>If you didn’t request this, please ignore this email.</p>
 </body>

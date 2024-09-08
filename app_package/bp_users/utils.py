@@ -64,8 +64,14 @@ def send_confirmation_request_email(email, serialized_token, host_url):
     # msg = Message('Confirm Your Email Address', recipients=['recipient@example.com'])
     # print(f"{render_template('confirm_email.html')}")
     # Render HTML from template
-    msg.html = render_template('validate_email_email.html', serialized_token=serialized_token,
-        host_url=host_url)
+    match os.environ.get('WS_CONFIG_TYPE'):
+        case 'dev' | 'prod':
+            msg.html = render_template('validate_email_email.html', serialized_token=serialized_token,
+                host_url=current_app.config.get('API_URL')+"/")
+        case _:
+            msg.html = render_template('validate_email_email.html', serialized_token=serialized_token,
+                host_url=host_url)
+        
     mail.send(msg)
     print(f"-- email sent --")
 

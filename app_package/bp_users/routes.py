@@ -472,7 +472,7 @@ def convert_generic_account_to_custom_account(current_user):
 
 
 
-@bp_users.route("/receive_email_validation/<serialized_token>", methods=["POST"])
+@bp_users.route("/receive_email_validation/<serialized_token>", methods=["GET"])
 def receive_email_validation(serialized_token):
     logger_bp_users.info(f"- in receive_email_validation  ---")
     logger_bp_users.info(f"- serialized_token: {serialized_token}  ---")
