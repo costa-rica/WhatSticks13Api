@@ -781,12 +781,15 @@ def update_user_location_details(current_user):
 
     # check if dashbaord json file exits
     user_data_table_array_json_file_name = f"data_table_objects_array_{current_user.id:04}.json"
-    if os.path.exists(user_data_table_array_json_file_name):
+    json_data_path_and_name = os.path.join(current_app.config.get('DASHBOARD_FILES_DIR'), user_data_table_array_json_file_name)
+    if os.path.exists(json_data_path_and_name):
+        logger_bp_users.info(f"- *** found: json_data_path_and_name -")
         #if exists 
         dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
         if dash_table_obj_status_str == "Success":
+            logger_bp_users.info(f"- *** ---> now updating the dashboard table file -")
             response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
-            
+
     logger_bp_users.info(f"- successfully finished /update_user_location_details route -")
     response_dict['alert_title'] = "Success!"# < -- This is expected response for WSiOS to delete old user_locations.json
     response_dict['alert_message'] = ""
