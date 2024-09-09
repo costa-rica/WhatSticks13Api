@@ -273,7 +273,6 @@ def register_generic_account():
     return jsonify(response_dict)
         
 
-
 @bp_users.route('/convert_generic_account_to_custom_account', methods=['POST'])
 @token_required
 def convert_generic_account_to_custom_account(current_user):
@@ -471,7 +470,6 @@ def convert_generic_account_to_custom_account(current_user):
         return jsonify(response_dict)
 
 
-
 @bp_users.route("/receive_email_validation/<serialized_token>", methods=["GET"])
 def receive_email_validation(serialized_token):
     logger_bp_users.info(f"- in receive_email_validation  ---")
@@ -520,8 +518,6 @@ def receive_email_validation(serialized_token):
     response_dict['alert_message'] = f""
     logger_bp_users.info(f"- response_dict: {response_dict}")
     return jsonify(response_dict)
-
-
 
 
 # this get's sent at login
@@ -721,7 +717,6 @@ def reset_password(current_user):
         return jsonify(response_dict)
 
 
-
 # This replaces /update_user_location_with_lat_lon AND /update_user_location_with_user_location_json
 @bp_users.route('/update_user_location_details', methods=["POST"])
 @token_required
@@ -782,8 +777,17 @@ def update_user_location_details(current_user):
 
         current_user.timezone = most_current_date_timezone_str
 
-    logger_bp_users.info(f"- successfully finished /update_user_location_details route -")
     response_dict = {}
+
+    # check if dashbaord json file exits
+    user_data_table_array_json_file_name = f"data_table_objects_array_{current_user.id:04}.json"
+    if os.path.exists(user_data_table_array_json_file_name):
+        #if exists 
+        dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
+        if dash_table_obj_status_str == "Success":
+            response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
+            
+    logger_bp_users.info(f"- successfully finished /update_user_location_details route -")
     response_dict['alert_title'] = "Success!"# < -- This is expected response for WSiOS to delete old user_locations.json
     response_dict['alert_message'] = ""
     try:
