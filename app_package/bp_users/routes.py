@@ -24,6 +24,7 @@ from ws_utilities import convert_lat_lon_to_timezone_string, convert_lat_lon_to_
 import requests
 from app_package._common.utilities import custom_logger, wrap_up_session
 import time
+import subprocess
 
 logger_bp_users = custom_logger('bp_users.log')
 bp_users = Blueprint('bp_users', __name__)
@@ -785,10 +786,19 @@ def update_user_location_details(current_user):
     if os.path.exists(json_data_path_and_name):
         logger_bp_users.info(f"- *** found: json_data_path_and_name -")
         #if exists 
-        dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
-        if dash_table_obj_status_str == "Success":
-            logger_bp_users.info(f"- *** ---> now updating the dashboard table file -")
-            response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
+        path_sub = os.path.join(current_app.config.get('APPLE_SERVICE_11_ROOT'), 'send_job.py')
+        # run WSAS subprocess
+        logger_bp_users.info(f"---> SENDING subprocess ['python', path_sub, user_id_string, time_stamp_str_for_json_file_name, 'False', 'False'] -")
+        user_id_string = str(current_user.id)
+        time_stamp_str_for_json_file_name = "just_recalculate"
+        process = subprocess.Popen(['python', path_sub, user_id_string, time_stamp_str_for_json_file_name, 'False', 'False'])
+        logger_bp_users.info(f"---> successfully started subprocess PID:: {process.pid} -")
+        # dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
+        # if dash_table_obj_status_str == "Success":
+        #     logger_bp_users.info(f"- *** ---> now updating the dashboard table file -")
+        #     logger_bp_users.info(f"- dashboard_table_object_array ::::  -")
+        #     logger_bp_users.info(dashboard_table_object_array)
+        #     response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
 
     logger_bp_users.info(f"- successfully finished /update_user_location_details route -")
     response_dict['alert_title'] = "Success!"# < -- This is expected response for WSiOS to delete old user_locations.json
