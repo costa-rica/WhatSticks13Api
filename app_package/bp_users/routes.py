@@ -553,6 +553,30 @@ def send_dashboard_table_objects(current_user):
         case "Success":
             return jsonify(dashboard_table_object_array)
 
+# Designed for iOS DashboardVC pull down response
+@bp_users.route('/send_both_data_source_and_dashboard_objects', methods=['GET'])
+@token_required
+def send_both_data_source_and_dashboard_objects(current_user):
+    logger_bp_users.info(f"- ***** accessed  send_both_data_source_and_dashboard_objects endpoint-")
+    db_session = g.db_session
+
+    user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
+    
+    response_dict = {}
+    response_dict['alert_title'] = "Success"
+    response_dict['alert_message'] = ""
+    response_dict['user'] = user_object_for_swift_app
+
+    data_src_obj_status_str, list_data_source_objects =  create_data_source_object(current_user, db_session)
+    if data_src_obj_status_str == "Success":
+        response_dict['arryDataSourceObjects'] = list_data_source_objects
+
+    dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
+    if dash_table_obj_status_str == "Success":
+        response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
+    return jsonify(response_dict)
+
+
 
 # this get's sent at login
 @bp_users.route('/delete_user', methods=['POST'])

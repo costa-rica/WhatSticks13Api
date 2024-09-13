@@ -210,20 +210,7 @@ def create_data_source_object(current_user, db_session):
         # if os.path.exists(json_data_path_and_name-):
         with open(json_data_path_and_name,'r') as data_source_json_file:
             list_data_source_objects = json.load(data_source_json_file)
-                # list_data_source_objects.append(dashboard_table_object)
-        # else:
-        #     logger_bp_users.info(f"File not found: {json_data_path_and_name}")
 
-        #     #get user's apple health record count
-        #     # keys to data_source_object_apple_health must match WSiOS DataSourceObject
-        #     data_source_object_apple_health={}
-        #     data_source_object_apple_health['name']="Apple Health Data"
-        #     record_count_apple_health = db_session.query(AppleHealthQuantityCategory).filter_by(user_id=current_user.id).all()
-        #     data_source_object_apple_health['recordCount']="{:,}".format(len(record_count_apple_health))
-        #     # apple_health_record_count, earliest_date_str = get_apple_health_count_date(current_user.id)
-        #     # data_source_object_apple_health['recordCount'] = apple_health_record_count
-        #     # data_source_object_apple_health['earliestRecordDate'] = earliest_date_str
-        #     list_data_source_objects.append(data_source_object_apple_health)
     
         logger_bp_users.info(f"- Returning dashboard_table_object list: {list_data_source_objects} -")
         logger_bp_users.info(f"- END send_data_source_objects -")
