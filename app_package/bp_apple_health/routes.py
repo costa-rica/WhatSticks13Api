@@ -51,7 +51,7 @@ logger_bp_apple_health.info(f'- WhatSticks13 API users Bluprints initialized')
 #     return response
 
 
-@bp_apple_health.route('/delete_apple_health_for_user', methods=['POST'])
+@bp_apple_health.route('/delete_apple_health_for_user', methods=['GET'])
 @token_required
 def delete_apple_health_for_user(current_user):
     logger_bp_apple_health.info(f"- accessed  delete_apple_health_for_user endpoint-")

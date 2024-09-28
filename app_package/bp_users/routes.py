@@ -579,7 +579,7 @@ def send_both_data_source_and_dashboard_objects(current_user):
 
 
 # this get's sent at login
-@bp_users.route('/delete_user', methods=['POST'])
+@bp_users.route('/delete_user', methods=['GET'])
 @token_required
 def delete_user(current_user):
     logger_bp_users.info(f"- accessed  delete_user endpoint-")
