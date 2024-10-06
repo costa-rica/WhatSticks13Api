@@ -761,16 +761,19 @@ def update_user_location_details(current_user):
     logger_bp_users.info(f"- location_permission_device: {request_json.get('location_permission_device')}, {type(request_json.get('location_permission_device'))}-")
     logger_bp_users.info(f"- location_permission_ws: {request_json.get('location_permission_ws')}, {type(request_json.get('location_permission_ws'))}-")
     
-    if request_json.get('location_permission_device') and request_json.get('location_permission_ws'):
-        logger_bp_users.info(f"- IF statement for location_permission_device AND location_permission_ws-")
-        # Update user status for 1) location_permission_device and 2) location_permission_ws
-        # if .get() == null, this will be false - already checked 2024-08-14
-        location_permission_device = request_json.get('location_permission_device')
-        location_permission_ws = request_json.get('location_permission_ws')
-        current_user.location_permission_device=location_permission_device
-        current_user.location_permission_ws=location_permission_ws
+    # NOTE: location_permission_device set everytime iOS app is launched in LocationFetcher (i.e. will never be null when request sent)
+    # - location_permission_ws set everytime the iOS app UISwitch is toggled > before (and the only times) this route is accessed (i.e. also never null)
 
-        user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
+    # if request_json.get('location_permission_device') and request_json.get('location_permission_ws'):
+    #     logger_bp_users.info(f"- IF statement for location_permission_device AND location_permission_ws-")
+    #     # Update user status for 1) location_permission_device and 2) location_permission_ws
+    #     # if .get() == null, this will be false - already checked 2024-08-14
+    #     location_permission_device = request_json.get('location_permission_device')
+    #     location_permission_ws = request_json.get('location_permission_ws')
+    current_user.location_permission_device=request_json.get('location_permission_device')
+    current_user.location_permission_ws=request_json.get('location_permission_ws')
+
+    user_object_for_swift_app = create_user_obj_for_swift_login(current_user, db_session)
 
     # recieve user_location.json and update UserLocDay
     user_location_list = request_json.get('user_location')
