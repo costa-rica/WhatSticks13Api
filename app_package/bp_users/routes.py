@@ -22,7 +22,7 @@ from app_package.bp_users.utils import send_confirm_email, send_reset_email, del
 from ws_utilities import convert_lat_lon_to_timezone_string, convert_lat_lon_to_city_country, \
     find_user_location, add_user_loc_day_process
 import requests
-from app_package._common.utilities import custom_logger, wrap_up_session
+from app_package._common.utilities import custom_logger, wrap_up_session, save_request_data
 import time
 import subprocess
 
@@ -748,9 +748,17 @@ def reset_password(current_user):
 def update_user_location_details(current_user):
     logger_bp_users.info(f"- in update_user_location_details -")
     db_session = g.db_session
+
     try:
         request_json = request.json
         logger_bp_users.info(f"request_json: {request_json}")
+        save_request_data(request_json, request.path, current_user.id,
+                            current_app.config.get('USER_LOCATION_JSON'), logger_bp_users)
+
+
+    # try:
+    #     request_json = request.json
+    #     logger_bp_users.info(f"request_json: {request_json}")
     except Exception as e:
         logger_bp_users.info(f"failed to read json in update_user_location_with_user_location_json")
         logger_bp_users.info(f"{type(e).__name__}: {e}")
