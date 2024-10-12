@@ -166,7 +166,9 @@ def login_generic_account():
     logger_bp_users.info(f"- response_dict: {response_dict} -")
     return jsonify(response_dict)
 
-
+# I don't think this is used 2024-10-12
+# - analyzed using the UserStore.connectDevice() method that only /login, /login_generic_account, and 
+#    /register_generic_account are the only ones called. It doesn't seem /register is ever called.
 @bp_users.route('/register', methods=['POST'])
 def register():
     logger_bp_users.info(f"- register endpoint pinged -")
@@ -755,10 +757,6 @@ def update_user_location_details(current_user):
         save_request_data(request_json, request.path, current_user.id,
                             current_app.config.get('USER_LOCATION_JSON'), logger_bp_users)
 
-
-    # try:
-    #     request_json = request.json
-    #     logger_bp_users.info(f"request_json: {request_json}")
     except Exception as e:
         logger_bp_users.info(f"failed to read json in update_user_location_with_user_location_json")
         logger_bp_users.info(f"{type(e).__name__}: {e}")
@@ -772,12 +770,6 @@ def update_user_location_details(current_user):
     # NOTE: location_permission_device set everytime iOS app is launched in LocationFetcher (i.e. will never be null when request sent)
     # - location_permission_ws set everytime the iOS app UISwitch is toggled > before (and the only times) this route is accessed (i.e. also never null)
 
-    # if request_json.get('location_permission_device') and request_json.get('location_permission_ws'):
-    #     logger_bp_users.info(f"- IF statement for location_permission_device AND location_permission_ws-")
-    #     # Update user status for 1) location_permission_device and 2) location_permission_ws
-    #     # if .get() == null, this will be false - already checked 2024-08-14
-    #     location_permission_device = request_json.get('location_permission_device')
-    #     location_permission_ws = request_json.get('location_permission_ws')
     current_user.location_permission_device=request_json.get('location_permission_device')
     current_user.location_permission_ws=request_json.get('location_permission_ws')
 
@@ -819,7 +811,7 @@ def update_user_location_details(current_user):
     user_data_table_array_json_file_name = f"data_table_objects_array_{current_user.id:04}.json"
     json_data_path_and_name = os.path.join(current_app.config.get('DASHBOARD_FILES_DIR'), user_data_table_array_json_file_name)
     if os.path.exists(json_data_path_and_name):
-        logger_bp_users.info(f"- *** found: json_data_path_and_name -")
+        logger_bp_users.info(f"---> found: json_data_path_and_name 📢-")
         #if exists 
         path_sub = os.path.join(current_app.config.get('APPLE_SERVICE_11_ROOT'), 'send_job.py')
         # run WSAS subprocess
@@ -828,12 +820,7 @@ def update_user_location_details(current_user):
         time_stamp_str_for_json_file_name = "just_recalculate"
         process = subprocess.Popen(['python', path_sub, user_id_string, time_stamp_str_for_json_file_name, 'False', 'False'])
         logger_bp_users.info(f"---> successfully started subprocess PID:: {process.pid} -")
-        # dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
-        # if dash_table_obj_status_str == "Success":
-        #     logger_bp_users.info(f"- *** ---> now updating the dashboard table file -")
-        #     logger_bp_users.info(f"- dashboard_table_object_array ::::  -")
-        #     logger_bp_users.info(dashboard_table_object_array)
-        #     response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
+
 
     logger_bp_users.info(f"- successfully finished /update_user_location_details route -")
     response_dict['alert_title'] = "Success!"# < -- This is expected response for WSiOS to delete old user_locations.json
