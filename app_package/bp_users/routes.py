@@ -569,13 +569,19 @@ def send_both_data_source_and_dashboard_objects(current_user):
     response_dict['alert_message'] = ""
     response_dict['user'] = user_object_for_swift_app
 
+    #NOTE: Do not send one without the other -> important for the mobile app
+
     data_src_obj_status_str, list_data_source_objects =  create_data_source_object(current_user, db_session)
-    if data_src_obj_status_str == "Success":
-        response_dict['arryDataSourceObjects'] = list_data_source_objects
+    # if data_src_obj_status_str == "Success":
+    #     response_dict['arryDataSourceObjects'] = list_data_source_objects
 
     dash_table_obj_status_str, dashboard_table_object_array = create_dashboard_table_objects(current_user, db_session)
-    if dash_table_obj_status_str == "Success":
+    if dash_table_obj_status_str == "Success" and data_src_obj_status_str == "Success":
+        response_dict['arryDataSourceObjects'] = list_data_source_objects
         response_dict['arryDashboardTableObjects'] = dashboard_table_object_array
+
+
+
     return jsonify(response_dict)
 
 
